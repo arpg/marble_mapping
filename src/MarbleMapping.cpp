@@ -140,7 +140,7 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   omp_set_num_threads(m_numThreads);
 
   // Merged OcTree
-  m_merged_tree = new OcTreeStamped(m_mres);
+  m_merged_tree = new OcTreeT(m_mres);
   m_merged_tree->setProbHit(probHit);
   m_merged_tree->setProbMiss(probMiss);
   m_merged_tree->setClampingThresMin(thresMin);
@@ -425,7 +425,7 @@ void MarbleMapping::neighborMapsCallback(const marble_mapping::OctomapNeighborsC
 
 void MarbleMapping::octomapCallback(const octomap_msgs::OctomapConstPtr& msg) {
   delete m_merged_tree;
-  m_merged_tree = (octomap::OcTreeStamped*)octomap_msgs::binaryMsgToMap(*msg);
+  m_merged_tree = (OcTreeT*)octomap_msgs::binaryMsgToMap(*msg);
 }
 
 void MarbleMapping::octomapDiffsCallback(const octomap_msgs::OctomapConstPtr& msg, const std::string owner) {
@@ -458,7 +458,7 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   pcl::fromROSMsg(*cloud, pc);
 
   if (m_downsampleSize > 0.0) {
-    pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+    pcl::VoxelGrid<PCLPoint> voxel_filter;
     voxel_filter.setInputCloud (pc.makeShared());
     voxel_filter.setFilterFieldName("x");
     voxel_filter.setLeafSize (m_downsampleSize, m_downsampleSize, m_downsampleSize);
@@ -487,6 +487,9 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   pcl::PassThrough<PCLPoint> pass_z;
   pass_z.setFilterFieldName("z");
   pass_z.setFilterLimits(m_pointcloudMinZ, m_pointcloudMaxZ);
+  pcl::PassThrough<PCLPoint> pass_int;
+  pass_int.setFilterFieldName("intensity");
+  pass_int.setFilterLimits(0, 1);
 
   PCLPointCloud pc_ground; // segmented ground plane
   PCLPointCloud pc_nonground; // everything else
@@ -517,6 +520,8 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
+    pass_int.setInputCloud(pc.makeShared());
+    pass_int.filter(pc);
     filterGroundPlane(pc, pc_ground, pc_nonground);
 
     // transform clouds to world frame for insertion
@@ -533,6 +538,8 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
+    pass_int.setInputCloud(pc.makeShared());
+    pass_int.filter(pc);
 
     pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
@@ -608,6 +615,8 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
         #pragma omp critical(occupied_insert)
         {
           occupied_cells.insert(key);
+          m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
+          // ROS_INFO("* Averaging (%f,%f,%f) w %f to octree", it->x, it->y, it->z, it->intensity); 
         }
       }
     } else {// ray longer than maxrange:;
@@ -658,6 +667,8 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
     point3d point = m_octree->keyToCoord(*it);
     m_octree->updateNode(*it, true);
     OcTreeNodeStamped *newNode = m_merged_tree->updateNode(point, true);
+    ((RoughOcTreeNodeStamped*)newNode)->setRough((m_octree->search(*it))->getRough());
+    // ROS_INFO("* Initing merged_tree (%f,%f,%f) w %f ", point.x(), point.y(), point.z(), ((RoughOcTreeNodeStamped*)newNode)->getRough()); 
     newNode->setTimestamp(1);
     if (m_buildCameraMap && pointInsideView(point)) {
       m_camera_tree->updateNode(point, true);
@@ -680,12 +691,18 @@ int MarbleMapping::updateDiffTree(OcTreeMT* tree, PCLPointCloud& pclDiffCloud) {
     // We should never have a NULL node, but just in case...
     if (node != NULL) {
       m_diff_tree->setNodeValue(iter->first, node->getLogOdds());
+      m_diff_tree->setNodeRough(iter->first, ((RoughOcTreeNode*)node)->getRough());
       num_nodes++;
 
       // Create a point cloud diff if enabled
       if ((m_publishPointCloudDiff) && (node->getLogOdds() >= 0)) {
         point3d point = tree->keyToCoord(iter->first);
-        pclDiffCloud.push_back(PCLPoint(point.x(), point.y(), point.z()));
+        PCLPoint pcpoint;
+        pcpoint.x = point.x();
+        pcpoint.y = point.y();
+        pcpoint.z = point.z();
+        pcpoint.intensity = ((RoughOcTreeNode*)node)->getRough();
+        pclDiffCloud.push_back(pcpoint);
       }
     }
   }
@@ -743,7 +760,7 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
 
 void MarbleMapping::mergeNeighbors() {
   // Merge neighbor maps with local map
-  octomap::OcTree* ntree;
+  OcTreeT* ntree;
   bool overwrite_node;
   unsigned ts;
 
@@ -758,11 +775,13 @@ void MarbleMapping::mergeNeighbors() {
         m_merged_tree->clear();
 
         // Copy the self map to merged map
-        for (OcTree::leaf_iterator it = m_octree->begin_leafs();
+        for (OcTreeT::leaf_iterator it = m_octree->begin_leafs();
             it != m_octree->end_leafs(); ++it) {
           point3d point = it.getCoordinate();
           OcTreeNodeStamped *newNode = m_merged_tree->setNodeValue(point, it->getLogOdds());
+          ((RoughOcTreeNodeStamped*)newNode)->setRough(it->getRough());
           newNode->setTimestamp(1);
+          ROS_INFO("**** Copying (%f,%f,%f) w %f to merged map", it.getX(), it.getY(), it.getZ(), it->getRough()); 
         }
 
         if (m_diffMerged)
@@ -804,14 +823,14 @@ void MarbleMapping::mergeNeighbors() {
           overwrite_node = false;
 
         if (neighbors.neighbors[i].octomaps[j].binary)
-          ntree = (octomap::OcTree*)octomap_msgs::binaryMsgToMap(neighbors.neighbors[i].octomaps[j]);
+          ntree = (OcTreeT*)octomap_msgs::binaryMsgToMap(neighbors.neighbors[i].octomaps[j]);
         else
-          ntree = (octomap::OcTree*)octomap_msgs::fullMsgToMap(neighbors.neighbors[i].octomaps[j]);
+          ntree = (OcTreeT*)octomap_msgs::fullMsgToMap(neighbors.neighbors[i].octomaps[j]);
 
         // Iterate through the diff tree and merge
         ntree->expand();
         boost::mutex::scoped_lock lock(m_mtx);
-        for (OcTree::leaf_iterator it = ntree->begin_leafs(); it != ntree->end_leafs(); ++it) {
+        for (OcTreeT::leaf_iterator it = ntree->begin_leafs(); it != ntree->end_leafs(); ++it) {
           OcTreeKey nodeKey = it.getKey();
           OcTreeNodeStamped *nodeM = m_merged_tree->search(nodeKey);
           if (nodeM != NULL) {
@@ -819,6 +838,7 @@ void MarbleMapping::mergeNeighbors() {
               // If the diff is newer, and the merge node came from this neighbor
               // replace the value and maintain the timestamp id
               m_merged_tree->setNodeValue(nodeKey, it->getLogOdds());
+              m_merged_tree->setNodeRough(nodeKey, it->getRough());
               nodeM->setTimestamp(ts);
             } else if ((nodeM->getTimestamp() == 0) || (nodeM->getTimestamp() != 1)) {
               // If there's already a node in the merged map, but it's from another neighbor,
@@ -833,6 +853,7 @@ void MarbleMapping::mergeNeighbors() {
           } else {
             // If the node doesn't exist in the merged map, add it with the value
             OcTreeNodeStamped *newNode = m_merged_tree->setNodeValue(nodeKey, it->getLogOdds());
+            ((RoughOcTreeNodeStamped*)newNode)->setRough(it->getRough());
             newNode->setTimestamp(ts);
           }
 
@@ -841,10 +862,14 @@ void MarbleMapping::mergeNeighbors() {
             neighbor_updated[nid.data()] = true;
             if (neighbor_maps[nid.data()]->search(nodeKey) != NULL) {
                 neighbor_maps[nid.data()]->setNodeValue(nodeKey, it->getLogOdds());
+                ((RoughOcTreeStamped*)neighbor_maps[nid.data()])->setNodeRough(nodeKey, it->getRough());
             } else {
               neighbor_maps[nid.data()]->setNodeValue(nodeKey, it->getLogOdds());
+              ((RoughOcTreeStamped*)neighbor_maps[nid.data()])->setNodeRough(nodeKey, it->getRough());
             }
           }
+
+          ROS_INFO("** Set (%f,%f,%f) to %f in mergeNeighbors", it.getX(), it.getY(), it.getZ(), it->getRough());
         }
 
         delete ntree;
@@ -879,7 +904,7 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
 
     // now, traverse all leafs in the tree:
     boost::mutex::scoped_lock lock(m_mtx);
-    for (OcTreeStamped::iterator it = m_merged_tree->begin(m_maxTreeDepth),
+    for (OcTreeT::iterator it = m_merged_tree->begin(m_maxTreeDepth),
         end = m_merged_tree->end(); it != end; ++it) {
       if (m_merged_tree->isNodeOccupied(*it)) {
         // Skip this node if remove ceiling is enabled
@@ -911,17 +936,34 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             cubeCenter.z = z;
 
             occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
-            double minX, minY, minZ, maxX, maxY, maxZ;
-            m_merged_tree->getMetricMin(minX, minY, minZ);
-            m_merged_tree->getMetricMax(maxX, maxY, maxZ);
 
-            double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
-            occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
+            // double minX, minY, minZ, maxX, maxY, maxZ;
+            // m_merged_tree->getMetricMin(minX, minY, minZ);
+            // m_merged_tree->getMetricMax(maxX, maxY, maxZ);
+
+            // double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
+            // occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
+
+            if (it->isRoughSet())
+            {
+              RGBColor _color = it->getRoughColor();
+              std_msgs::ColorRGBA _color_msg; _color_msg.r = _color.r; _color_msg.g = _color.g; _color_msg.b = _color.b; _color_msg.a = 1.0f;
+              occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
+            }
+            else
+            {
+              std_msgs::ColorRGBA _color_msg; _color_msg.r = 1.0; _color_msg.g = 0.0; _color_msg.b = 0.0; _color_msg.a = 1.0f;
+              occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
+            }
           }
 
           // insert into pointcloud:
           if (publishPointCloud) {
-            pclCloud.push_back(PCLPoint(x, y, z));
+            // pclCloud.push_back(PCLPoint(x, y, z));
+            PCLPoint _point = PCLPoint();
+            _point.x = x; _point.y = y; _point.z = z;
+            _point.intensity = it->getRough();
+            pclCloud.push_back(_point);
           }
 
         }
@@ -1148,7 +1190,7 @@ void MarbleMapping::publishMergedBinaryOctoMap(const ros::Time& rostime) const{
   map.header.stamp = rostime;
 
   if (octomap_msgs::binaryMapToMsg(*m_merged_tree, map)) {
-    map.id = "OcTree";
+    // map.id = "OcTree";
     m_mergedBinaryMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");
@@ -1161,7 +1203,7 @@ void MarbleMapping::publishMergedFullOctoMap(const ros::Time& rostime) const{
   map.header.stamp = rostime;
 
   if (octomap_msgs::fullMapToMsg(*m_merged_tree, map)) {
-    map.id = "OcTree";
+    // map.id = "OcTree";
     m_mergedFullMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");
@@ -1174,7 +1216,7 @@ void MarbleMapping::publishCameraOctoMap(const ros::Time& rostime) const{
   map.header.stamp = rostime;
 
   if (octomap_msgs::binaryMapToMsg(*m_camera_tree, map)) {
-    map.id = "OcTree";
+    // map.id = "OcTree";
     m_cameraMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");

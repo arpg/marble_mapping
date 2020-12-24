@@ -64,6 +64,9 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeStamped.h>
 #include <octomap/OcTreeKey.h>
+
+#include <octomap/RoughOcTree.h>
+
 #include <omp.h>
 
 #include "marble_mapping/OctomapArray.h"
@@ -73,9 +76,10 @@ namespace marble_mapping {
 class MarbleMapping {
 
 public:
-  typedef pcl::PointXYZ PCLPoint;
-  typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
-  typedef octomap::OcTree OcTreeT;
+  typedef pcl::PointXYZI PCLPoint;
+  typedef pcl::PointCloud<PCLPoint> PCLPointCloud;
+  typedef octomap::RoughOcTreeStamped OcTreeT;
+
   typedef octomap_msgs::GetOctomap OctomapSrv;
   ros::CallbackQueue pub_queue;
 
@@ -155,7 +159,7 @@ protected:
   OcTreeT* m_octree;
   OcTreeT* m_diff_tree;
   OcTreeT* m_camera_tree;
-  octomap::OcTreeStamped* m_merged_tree;
+  OcTreeT* m_merged_tree;
   std::vector<octomap::KeyRay> keyrays;
 
   marble_mapping::OctomapArray mapdiffs;
