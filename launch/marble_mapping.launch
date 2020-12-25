@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+
+  <arg name="name_prefix" default=""/>
+
   <!-- Resolution for local-only map -->
   <arg name="resolution" default="0.2" />
   <!-- Resolution to build merged map in and create diff maps -->
@@ -60,7 +63,7 @@
   <arg name="sensor_model/min" default=".12" />
   <arg name="sensor_model/max" default=".97" />
 
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="screen">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping$(arg name_prefix)" output="screen">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
