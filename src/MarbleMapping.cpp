@@ -781,7 +781,7 @@ void MarbleMapping::mergeNeighbors() {
           OcTreeNodeStamped *newNode = m_merged_tree->setNodeValue(point, it->getLogOdds());
           ((RoughOcTreeNodeStamped*)newNode)->setRough(it->getRough());
           newNode->setTimestamp(1);
-          ROS_INFO("**** Copying (%f,%f,%f) w %f to merged map", it.getX(), it.getY(), it.getZ(), it->getRough()); 
+          // ROS_INFO("**** Copying (%f,%f,%f) w %f to merged map", it.getX(), it.getY(), it.getZ(), it->getRough()); 
         }
 
         if (m_diffMerged)
