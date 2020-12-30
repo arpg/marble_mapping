@@ -13,9 +13,13 @@
   <arg name="agents" default="X1,X2,X3,X4" />
   <arg name="diff_pre" default="/robot_data/" />
   <arg name="diff_post" default="/map_diff" />
+
+  <arg name="num_threads" default="1" />
+
   <!-- Topic prefix to output to, ie merged_map outputs to merged_map_markers, etc -->
   <arg name="prefix" default="merged_map" />
   <arg name="publish_merged_binary" default="true" />
+  <arg name="publish_merged_full" default="false" />
   <arg name="publish_neighbor_maps" default="true" />
   <!-- How often to publish these maps (marker array, point cloud) -->
   <arg name="publish_optional_duration" default="0.2" />
@@ -23,6 +27,7 @@
   <arg name="publish_marker_array" default="true" />
   <arg name="publish_free_space" default="false" />
   <arg name="publish_point_cloud" default="false" />
+  <arg name="publish_point_cloud_diff" default="false" />
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
   <arg name="remove_ceiling" default="true" />
   <arg name="remove_ceiling_depth" default="4" />
@@ -35,12 +40,16 @@
     <param name="diff_pre" value="$(arg diff_pre)" />
     <param name="diff_post" value="$(arg diff_post)" />
 
+    <param name="num_threads" value="$(arg num_threads)" />
+
     <param name="publish_merged_binary" value="$(arg publish_merged_binary)" />
+    <param name="publish_merged_full" value="$(arg publish_merged_full)" />
     <param name="publish_neighbor_maps" value="$(arg publish_neighbor_maps)" />
     <param name="publish_optional_duration" value="$(arg publish_optional_duration)" />
     <param name="publish_marker_array" value="$(arg publish_marker_array)" />
     <param name="publish_free_space" value="$(arg publish_free_space)" />
     <param name="publish_point_cloud" value="$(arg publish_point_cloud)" />
+    <param name="publish_point_cloud_diff" value="$(arg publish_point_cloud_diff)" />
 
     <param name="remove_ceiling" value="$(arg remove_ceiling)" />
     <param name="remove_ceiling_depth" value="$(arg remove_ceiling_depth)" />
@@ -48,5 +57,7 @@
     <remap from="merged_map_markers" to="$(arg prefix)_markers" />
     <remap from="merged_map_free" to="$(arg prefix)_free" />
     <remap from="merged_map_pc" to="$(arg prefix)_pc" />
+
+    <param name="merged_resolution" value="$(arg merged_resolution)" />
   </node>
 </launch>

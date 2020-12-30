@@ -2,7 +2,6 @@
 <launch>
 
   <arg name="ns" default=""/>
-
   <!-- Resolution for local-only map -->
   <arg name="resolution" default="0.2" />
   <!-- Resolution to build merged map in and create diff maps -->
@@ -63,9 +62,12 @@
   <arg name="sensor_model/min" default=".12" />
   <arg name="sensor_model/max" default=".97" />
 
-  <arg name="marble_mapping_name"     default="marble_mapping"           if="$(eval ns=='')"/>
-  <arg name="marble_mapping_name"     default="marble_mapping_$(arg ns)"     unless="$(eval ns=='')"/>
-  <node pkg="marble_mapping" type="marble_mapping_node" name="$(arg marble_mapping_name)" output="screen">
+  <group ns="$(arg ns)">
+
+  <!-- <arg name="marble_mapping_name"     default="marble_mapping"           if="$(eval ns=='')"/> -->
+  <!-- <arg name="marble_mapping_name"     default="marble_mapping_$(arg ns)"     unless="$(eval ns=='')"/> -->
+  <!-- <node pkg="marble_mapping" type="marble_mapping_node" name="$(arg marble_mapping_name)" output="screen"> -->
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="log">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
@@ -114,4 +116,9 @@
     <!-- <remap from="base_frame_id" to="/X1/base_link" /> -->
 
   </node>
+  </group>
+
+  <!-- <include file="$(find marble_virtual_comms)/launch/marble_virtual_comms.launch">
+      <arg name="vehicle" value="$(arg ns)"/>
+  </include> -->
 </launch>
