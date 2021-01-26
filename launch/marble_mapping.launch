@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
 
-  <arg name="ns" default=""/>
   <!-- Resolution for local-only map -->
   <arg name="resolution" default="0.2" />
   <!-- Resolution to build merged map in and create diff maps -->
@@ -19,7 +18,7 @@
   <!-- Number of threads to use. Setting '0' or a value greater than maximum value
        will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
        At low resolutions recommend '1' for best performance -->
-  <arg name="num_threads" default="1" />
+  <arg name="num_threads" default="0" />
   <!-- Resolution to downsample point cloud using Voxel Grid Filter.  Set to 0 for none -->
   <arg name="downsample_size" default="0.0" />
   <!-- Secondary camera settings for a restricted view map, such as for an artifact camera -->
@@ -61,8 +60,6 @@
   <arg name="sensor_model/miss" default=".48" />
   <arg name="sensor_model/min" default=".12" />
   <arg name="sensor_model/max" default=".97" />
-
-  <group ns="$(arg ns)">
 
   <!-- <arg name="marble_mapping_name"     default="marble_mapping"           if="$(eval ns=='')"/> -->
   <!-- <arg name="marble_mapping_name"     default="marble_mapping_$(arg ns)"     unless="$(eval ns=='')"/> -->
@@ -116,7 +113,6 @@
     <!-- <remap from="base_frame_id" to="/X1/base_link" /> -->
 
   </node>
-  </group>
 
   <!-- <include file="$(find marble_virtual_comms)/launch/marble_virtual_comms.launch">
       <arg name="vehicle" value="$(arg ns)"/>

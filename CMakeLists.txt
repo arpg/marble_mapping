@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 2.8)
 project(marble_mapping)
 
+OPTION(WITH_TRAVERSABILITY "Build with traversability info?" OFF)
+IF(WITH_TRAVERSABILITY)
+  add_definitions(-DWITH_TRAVERSABILITY)
+ENDIF()
+
 set(PACKAGE_DEPENDENCIES
   roscpp
   visualization_msgs
