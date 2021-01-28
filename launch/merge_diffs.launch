@@ -31,6 +31,9 @@
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
   <arg name="remove_ceiling" default="true" />
   <arg name="remove_ceiling_depth" default="4" />
+  
+  <arg name="enable_traversability"           default="false" />
+  <arg name="enable_traversability_sharing"   default="false" />
 
   <node pkg="marble_mapping" type="marble_mapping_node" name="merge_diffs" output="screen">
     <param name="merged_resolution" value="$(arg merged_resolution)" />
@@ -59,5 +62,8 @@
     <remap from="merged_map_pc" to="$(arg prefix)_pc" />
 
     <param name="merged_resolution" value="$(arg merged_resolution)" />
+
+    <param name="enable_traversability"           value="$(arg enable_traversability)" />
+    <param name="enable_traversability_sharing"   value="$(arg enable_traversability_sharing)" />
   </node>
 </launch>

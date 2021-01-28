@@ -53,6 +53,10 @@
   <arg name="diff_duration" default="10.0" />
   <!-- Whether diffs should be based on self map (false) or merged map (true) -->
   <arg name="diff_merged" default="false" />
+  <!-- Enable traversability info to be integrated into occupied cells from intensity channel of input pointcloud -->
+  <arg name="enable_traversability"           default="false" />
+  <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
+  <arg name="enable_traversability_sharing"   default="false" />
   <!-- Remove ground plane occupancy from occupancy grid (boolean)-->
   <arg name="filter_ground" default="false" />
 
@@ -99,6 +103,9 @@
     <param name="diff_threshold" value="$(arg diff_threshold)" />
     <param name="diff_duration" value="$(arg diff_duration)" />
     <param name="diff_merged" value="$(arg diff_merged)" />
+
+    <param name="enable_traversability"           value="$(arg enable_traversability)" />
+    <param name="enable_traversability_sharing"   value="$(arg enable_traversability_sharing)" />
 
     <param name="filter_ground" value="$(arg filter_ground)" />
 

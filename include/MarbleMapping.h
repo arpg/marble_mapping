@@ -247,6 +247,9 @@ protected:
   std::string m_diff_pre;
   std::string m_diff_post;
   std::map<std::string, ros::Subscriber> m_diffSubs;
+
+  // traversability info variables
+  bool m_enableTraversability, m_enableTraversabilitySharing;
 };
 }
 

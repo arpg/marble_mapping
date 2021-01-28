@@ -115,10 +115,26 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("diff_duration", diff_duration, 10.0);
   m_nh_private.param("diff_merged", m_diffMerged, false);
 
+  m_nh_private.param("enable_traversability", m_enableTraversability, false);
+  m_nh_private.param("enable_traversability_sharing", m_enableTraversabilitySharing, false);
+
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
               << "This will not work.");
+  }
+
+#ifndef WITH_TRAVERSABILITY
+  if (m_enableTraversability)
+  {
+    ROS_WARN("Traversability enabled but MarbleMapping not built with traversability. Disabling traversability. Rebuild with -DWITH_TRAVERSABILITY to ensable.");
+    m_enableTraversability = false;
+  }
+#endif
+  if (!m_enableTraversability && m_enableTraversabilitySharing)
+  {
+    ROS_WARN("Traversability sharing enabled but traversability overall disabled. Disabling sharing.");
+    m_enableTraversabilitySharing = false;
   }
 
   // initialize octomap object & params
@@ -487,11 +503,14 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   pcl::PassThrough<PCLPoint> pass_z;
   pass_z.setFilterFieldName("z");
   pass_z.setFilterLimits(m_pointcloudMinZ, m_pointcloudMaxZ);
-  #ifdef WITH_TRAVERSABILITY
+#ifdef WITH_TRAVERSABILITY
   pcl::PassThrough<PCLPoint> pass_int;
-  pass_int.setFilterFieldName("intensity");
-  pass_int.setFilterLimits(0, 1);
-  #endif
+  if (m_enableTraversability)
+  {
+    pass_int.setFilterFieldName("intensity");
+    pass_int.setFilterLimits(0, 1);
+  }
+#endif
 
   PCLPointCloud pc_ground; // segmented ground plane
   PCLPointCloud pc_nonground; // everything else
@@ -503,12 +522,10 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
       m_tfListener.lookupTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, sensorToBaseTf);
       m_tfListener.lookupTransform(m_worldFrameId, m_baseFrameId, cloud->header.stamp, baseToWorldTf);
 
-
     }catch(tf::TransformException& ex){
       ROS_ERROR_STREAM( "Transform error for ground plane filter: " << ex.what() << ", quitting callback.\n"
                         "You need to set the base_frame_id or disable filter_ground.");
     }
-
 
     Eigen::Matrix4f sensorToBase, baseToWorld;
     pcl_ros::transformAsMatrix(sensorToBaseTf, sensorToBase);
@@ -522,10 +539,13 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
-  #ifdef WITH_TRAVERSABILITY
-    pass_int.setInputCloud(pc.makeShared());
-    pass_int.filter(pc);
-  #endif
+#ifdef WITH_TRAVERSABILITY
+    if (m_enableTraversability)
+    {
+      pass_int.setInputCloud(pc.makeShared());
+      pass_int.filter(pc);
+    }
+#endif
     filterGroundPlane(pc, pc_ground, pc_nonground);
 
     // transform clouds to world frame for insertion
@@ -542,10 +562,13 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
-  #ifdef WITH_TRAVERSABILITY
-    pass_int.setInputCloud(pc.makeShared());
-    pass_int.filter(pc);
-  #endif
+#ifdef WITH_TRAVERSABILITY
+    if (m_enableTraversability)
+    {
+      pass_int.setInputCloud(pc.makeShared());
+      pass_int.filter(pc);
+    }
+#endif
 
     pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
@@ -622,7 +645,10 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
         {
           occupied_cells.insert(key);
 #ifdef WITH_TRAVERSABILITY
-          m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity); 
+          if (m_enableTraversability)
+          {
+            m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity); 
+          }
 #endif
         }
       }
@@ -676,7 +702,10 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
     OcTreeTStamped::NodeType *newNode = m_merged_tree->updateNode(point, true);
     newNode->setTimestamp(1);
 #ifdef WITH_TRAVERSABILITY
-    m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
+    if (m_enableTraversability)
+    {
+      m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
+    }
 #endif
     if (m_buildCameraMap && pointInsideView(point)) {
       m_camera_tree->updateNode(point, true);
@@ -701,7 +730,10 @@ int MarbleMapping::updateDiffTree(OcTreeMT* tree, PCLPointCloud& pclDiffCloud) {
     if (node != NULL) {
       m_diff_tree->setNodeValue(iter->first, node->getLogOdds());
 #ifdef WITH_TRAVERSABILITY
-      m_diff_tree->setNodeRough(point.x(),point.y(),point.z(), tree->getNodeRough(point.x(),point.y(),point.z()));
+      if (m_enableTraversability)
+      {
+        m_diff_tree->setNodeRough(point.x(),point.y(),point.z(), tree->getNodeRough(point.x(),point.y(),point.z()));
+      }
 #endif
       num_nodes++;
 
@@ -712,7 +744,10 @@ int MarbleMapping::updateDiffTree(OcTreeMT* tree, PCLPointCloud& pclDiffCloud) {
         pcpoint.y = point.y();
         pcpoint.z = point.z();
 #ifdef WITH_TRAVERSABILITY
-        pcpoint.intensity = tree->getNodeRough(point.x(),point.y(),point.z());
+        if (m_enableTraversability)
+        {
+          pcpoint.intensity = tree->getNodeRough(point.x(),point.y(),point.z());
+        }
 #endif
         pclDiffCloud.push_back(pcpoint);
       }
@@ -742,8 +777,18 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
 
       // Create and publish message for this diff
       octomap_msgs::Octomap msg;
-      octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
-      // octomap_msgs::fullMapToMsg(*m_diff_tree, msg); // inefficient hack to enable sharing of trav info
+
+      // octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
+      if (m_enableTraversabilitySharing)
+      {
+        ROS_INFO("updating diff with full map");
+        octomap_msgs::fullMapToMsg(*m_diff_tree, msg); // inefficient hack to enable sharing of trav info
+        // octomap_msgs::binaryMapToMsg(*m_diff_tree, msg); // converts RoughOcTree to binary
+      }
+      else
+      {
+        octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
+      }
       msg.header.frame_id = m_worldFrameId;
       msg.header.stamp = ros::Time().now();
       msg.header.seq = num_diffs - 1;
@@ -794,7 +839,10 @@ void MarbleMapping::mergeNeighbors() {
           OcTreeTStamped::NodeType *newNode = m_merged_tree->setNodeValue(point, it->getLogOdds());
           newNode->setTimestamp(1);
 #ifdef WITH_TRAVERSABILITY
-          m_merged_tree->setNodeRough(point.x(),point.y(),point.z(), it->getRough());
+          if (m_enableTraversability)
+          {
+            m_merged_tree->setNodeRough(point.x(),point.y(),point.z(), it->getRough());
+          }
 #endif
         }
 
@@ -854,7 +902,10 @@ void MarbleMapping::mergeNeighbors() {
               m_merged_tree->setNodeValue(nodeKey, it->getLogOdds());
               nodeM->setTimestamp(ts);
 #ifdef WITH_TRAVERSABILITY
-              m_merged_tree->setNodeRough(nodeKey, it->getRough());
+              if (m_enableTraversability)
+              {
+                m_merged_tree->setNodeRough(nodeKey, it->getRough());
+              }
 #endif
             } else if ((nodeM->getTimestamp() == 0) || (nodeM->getTimestamp() != 1)) {
               // If there's already a node in the merged map, but it's from another neighbor,
@@ -864,7 +915,10 @@ void MarbleMapping::mergeNeighbors() {
               {
                 m_merged_tree->updateNode(nodeKey, true);
 #ifdef WITH_TRAVERSABILITY
-                m_merged_tree->averageNodeRough(nodeKey, it->getRough());
+                if (m_enableTraversability)
+                {
+                  m_merged_tree->averageNodeRough(nodeKey, it->getRough());
+                }
 #endif
               }
               else
@@ -876,7 +930,10 @@ void MarbleMapping::mergeNeighbors() {
             OcTreeTStamped::NodeType *newNode = m_merged_tree->setNodeValue(nodeKey, it->getLogOdds());
             newNode->setTimestamp(ts);
 #ifdef WITH_TRAVERSABILITY
-            m_merged_tree->setNodeRough(nodeKey, it->getRough());
+            if (m_enableTraversability)
+            {
+              m_merged_tree->setNodeRough(nodeKey, it->getRough());
+            }
 #endif
           }
 
@@ -886,12 +943,18 @@ void MarbleMapping::mergeNeighbors() {
             if (neighbor_maps[nid.data()]->search(nodeKey) != NULL) {
                 neighbor_maps[nid.data()]->setNodeValue(nodeKey, it->getLogOdds());
 #ifdef WITH_TRAVERSABILITY
-                neighbor_maps[nid.data()]->setNodeRough(nodeKey, it->getRough());
+                if (m_enableTraversability)
+                {
+                  neighbor_maps[nid.data()]->setNodeRough(nodeKey, it->getRough());
+                }
 #endif
             } else {
               neighbor_maps[nid.data()]->setNodeValue(nodeKey, it->getLogOdds());
 #ifdef WITH_TRAVERSABILITY
-              neighbor_maps[nid.data()]->setNodeRough(nodeKey, it->getRough());
+              if (m_enableTraversability)
+              {
+                neighbor_maps[nid.data()]->setNodeRough(nodeKey, it->getRough());
+              }
 #endif
             }
           }
@@ -963,9 +1026,12 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
 
 #ifdef WITH_TRAVERSABILITY
-              RGBColor _color = it->getRoughColor();
-              std_msgs::ColorRGBA _color_msg; _color_msg.r = _color.r; _color_msg.g = _color.g; _color_msg.b = _color.b; _color_msg.a = 1.0f;
-              occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
+              if (m_enableTraversability)
+              {
+                RGBColor _color = it->getRoughColor();
+                std_msgs::ColorRGBA _color_msg; _color_msg.r = _color.r; _color_msg.g = _color.g; _color_msg.b = _color.b; _color_msg.a = 1.0f;
+                occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
+              }
 #endif
           }
 
@@ -975,7 +1041,10 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             PCLPoint _point = PCLPoint();
             _point.x = x; _point.y = y; _point.z = z;
 #ifdef WITH_TRAVERSABILITY
-            _point.intensity = it->getRough();
+            if (m_enableTraversability)
+            {
+              _point.intensity = it->getRough();
+            }
 #endif
             pclCloud.push_back(_point);
           }
