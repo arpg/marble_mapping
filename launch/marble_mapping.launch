@@ -7,6 +7,7 @@
   <arg name="merged_resolution" default="0.2" />
   <!-- Fixed map frame (set to 'map' if SLAM or localization running!) -->
   <arg name="frame_id" default="world" />
+  <arg name="base_frame_id" default="base_link" />
   <!-- Enable multiagent processing, such as diff creation and merging -->
   <arg name="multiagent" default="true" />
   <!-- Input type: 0=none, 1=pointcloud, 2=octomap -->
@@ -127,7 +128,7 @@
       <arg name="ns"                                              value=""/>
       <arg name="enable_rviz"                                     value="false"/>
       <!-- <arg name="fixed_frame_id"                                  value="$(arg frame_id)"/> -->
-      <arg name="fixed_frame_id"                                  value="X1/base_link"/>
+      <arg name="fixed_frame_id"                                  value="$(arg base_frame_id)"/>
       <arg name="input_cloud_topic"                               value="$(arg cloud_in)"/>
       <arg name="main_cloud_topic"                                value="$(arg cloud_in)/main_cloud"/>
       <arg name="cost_cloud_topic"                                value="$(arg cloud_in)/cost_cloud"/>
