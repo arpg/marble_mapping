@@ -32,6 +32,7 @@
   <build_depend>nodelet</build_depend>
   <build_depend>libpcl-all-dev</build_depend>
   <build_depend>message_generation</build_depend>
+  <build_depend>rough_octomap</build_depend>
 
  <run_depend>roscpp</run_depend>
  <run_depend>visualization_msgs</run_depend>
@@ -48,7 +49,6 @@
  <run_depend>nodelet</run_depend>
  <run_depend>libpcl-all</run_depend>
  <run_depend>message_generation</run_depend>
+ <run_depend>rough_octomap</run_depend>
 
 </package>
-
-

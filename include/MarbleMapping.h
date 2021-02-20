@@ -66,7 +66,7 @@
 #include <octomap/OcTreeKey.h>
 
 #ifdef WITH_TRAVERSABILITY
-#include <octomap/RoughOcTree.h>
+#include <rough_octomap/RoughOcTree.h>
 #endif
 
 #include <omp.h>

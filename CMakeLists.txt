@@ -21,6 +21,9 @@ set(PACKAGE_DEPENDENCIES
   nodelet
   message_generation
 )
+IF(WITH_TRAVERSABILITY)
+  set(PACKAGE_DEPENDENCIES ${PACKAGE_DEPENDENCIES} "rough_octomap")
+ENDIF()
 
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
@@ -99,7 +102,7 @@ install(DIRECTORY launch/
   PATTERN ".svn" EXCLUDE
 )
 
-install(FILES 
+install(FILES
   nodelet_plugins.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
