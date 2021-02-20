@@ -434,7 +434,12 @@ void MarbleMapping::neighborMapsCallback(const marble_mapping::OctomapNeighborsC
   }
 
   // Better to put this somewhere else, but the callback should be infrequent enough this is ok
-  mergeNeighbors();
+  try {
+    mergeNeighbors();
+  } catch (const std::exception& e) {
+    ROS_ERROR("merging error! %s", e.what());
+  }
+
   boost::mutex::scoped_lock lock(m_mtx);
   m_merged_tree->prune();
 }
@@ -450,7 +455,12 @@ void MarbleMapping::octomapDiffsCallback(const octomap_msgs::OctomapConstPtr& ms
   neighbors.neighbors[0].octomaps[0] = *msg;
 
   // Merge the diff
-  mergeNeighbors();
+  try {
+    mergeNeighbors();
+  } catch (const std::exception& e) {
+    ROS_ERROR("merging error! %s", e.what());
+  }
+
   boost::mutex::scoped_lock lock(m_mtx);
   m_merged_tree->prune();
 
@@ -647,7 +657,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
           if (m_enableTraversability)
           {
-            m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity); 
+            m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
           }
 #endif
         }
@@ -818,7 +828,7 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
 
 void MarbleMapping::mergeNeighbors() {
   // Merge neighbor maps with local map
-  OcTreeT* ntree;
+  std::shared_ptr<OcTreeT> ntree(nullptr);
   bool overwrite_node;
   unsigned ts;
 
@@ -885,14 +895,15 @@ void MarbleMapping::mergeNeighbors() {
           overwrite_node = false;
 
         if (neighbors.neighbors[i].octomaps[j].binary)
-          ntree = (OcTreeT*)octomap_msgs::binaryMsgToMap(neighbors.neighbors[i].octomaps[j]);
+          ntree = std::shared_ptr<OcTreeT>(dynamic_cast<OcTreeT*>(octomap_msgs::binaryMsgToMap(neighbors.neighbors[i].octomaps[j])));
         else
-          ntree = (OcTreeT*)octomap_msgs::fullMsgToMap(neighbors.neighbors[i].octomaps[j]);
+          ntree = std::shared_ptr<OcTreeT>(dynamic_cast<OcTreeT*>(octomap_msgs::fullMsgToMap(neighbors.neighbors[i].octomaps[j])));
 
         // Iterate through the diff tree and merge
         ntree->expand();
         boost::mutex::scoped_lock lock(m_mtx);
-        for (OcTreeT::leaf_iterator it = ntree->begin_leafs(); it != ntree->end_leafs(); ++it) {
+        for (OcTreeT::leaf_iterator it = ntree->begin_leafs(), end = ntree->end_leafs();
+            it != end; ++it) {
           OcTreeKey nodeKey = it.getKey();
           OcTreeTStamped::NodeType *nodeM = m_merged_tree->search(nodeKey);
           if (nodeM != NULL) {
@@ -959,8 +970,6 @@ void MarbleMapping::mergeNeighbors() {
             }
           }
         }
-
-        delete ntree;
       }
     }
   }
@@ -1162,7 +1171,7 @@ void MarbleMapping::publishOctoMaps(const ros::TimerEvent& event) {
 
   if (publishMergedFullMap)
     publishMergedFullOctoMap(rostime);
-  
+
   if (publishCameraMap)
     publishCameraOctoMap(rostime);
 
