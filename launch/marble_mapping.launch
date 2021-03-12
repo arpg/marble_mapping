@@ -67,10 +67,7 @@
   <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
   <arg name="enable_traversability_sharing"   default="false" />
 
-  <!-- <arg name="marble_mapping_name"     default="marble_mapping"           if="$(eval ns=='')"/> -->
-  <!-- <arg name="marble_mapping_name"     default="marble_mapping_$(arg ns)"     unless="$(eval ns=='')"/> -->
-  <!-- <node pkg="marble_mapping" type="marble_mapping_node" name="$(arg marble_mapping_name)" output="screen"> -->
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="log">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="screen">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
@@ -125,8 +122,6 @@
   </node>
 
   <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch" if="$(arg enable_traversability)">
-      <arg name="ns"                                              value=""/>
-      <arg name="enable_rviz"                                     value="false"/>
       <!-- <arg name="fixed_frame_id"                                  value="$(arg frame_id)"/> -->
       <arg name="fixed_frame_id"                                  value="$(arg base_frame_id)"/>
       <arg name="input_cloud_topic"                               value="$(arg cloud_in)"/>
