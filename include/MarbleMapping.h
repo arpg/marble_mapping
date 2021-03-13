@@ -52,13 +52,14 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-
 #include <tf/transform_listener.h>
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap_msgs/GetOctomap.h>
+#ifndef WITH_TRAVERSABILITY
 #include <octomap_msgs/conversions.h>
+#endif
 
 #include <octomap_ros/conversions.h>
 #include <octomap/octomap.h>
@@ -67,6 +68,7 @@
 
 #ifdef WITH_TRAVERSABILITY
 #include <rough_octomap/RoughOcTree.h>
+#include <rough_octomap/conversions.h>
 #endif
 
 #include <omp.h>
