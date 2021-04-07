@@ -113,50 +113,11 @@
     <param name="sensor_model/min" value="$(arg sensor_model/min)" />
     <param name="sensor_model/max" value="$(arg sensor_model/max)" />
 
-    <remap from="cloud_in" to="$(arg cloud_in)" unless="$(arg enable_traversability)"/>
-    <remap from="cloud_in" to="$(arg cloud_in)/cost_norm_cloud" if="$(arg enable_traversability)"/>
+    <remap from="cloud_in" to="$(arg cloud_in)"/>
 
     <!-- The robot's base frame in which the ground plane detection is performed -->
     <!-- <remap from="base_frame_id" to="/X1/base_link" /> -->
 
   </node>
 
-  <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch" if="$(arg enable_traversability)">
-      <!-- <arg name="fixed_frame_id"                                  value="$(arg frame_id)"/> -->
-      <arg name="fixed_frame_id"                                  value="$(arg base_frame_id)"/>
-      <arg name="input_cloud_topic"                               value="$(arg cloud_in)"/>
-      <arg name="main_cloud_topic"                                value="$(arg cloud_in)/main_cloud"/>
-      <arg name="cost_cloud_topic"                                value="$(arg cloud_in)/cost_cloud"/>
-      <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_in)/cost_norm_cloud"/>
-      <!-- <arg name="enable_debug"                                    value="$(arg enable_debug)"/> -->
-
-      <arg name="preanalysis/dsFlag"                              value="true"/>
-      <arg name="preanalysis/dsResolution"                        value="0.05"/>
-      <!-- <arg name="preanalysis/neNeighMethod"                       value="0"/>
-      <arg name="preanalysis/neSearchNeighbours"                  value="24"/>
-      <arg name="preanalysis/neSearchRadius"                      value="0.2"/> -->
-      <arg name="preanalysis/gpFlag"                              value="false"/>
-      <!-- <arg name="preanalysis/gpAngle"                             value="1.0"/> -->
-      <arg name="preanalysis/pfActive"                            value="false"/>
-      <!-- <arg name="preanalysis/pfAngle"                             value="20.0"/> -->
-      <arg name="preanalysis/fsActive"                            value="false"/>
-      <!-- <arg name="preanalysis/fsAngle"                             value="30.0"/>
-      <arg name="preanalysis/fsRange"                             value="0.05"/>
-      <arg name="preanalysis/rob_x"                               value="0.0"/>
-      <arg name="preanalysis/rob_y"                               value="0.0"/>
-      <arg name="preanalysis/rob_z"                               value="0.0"/>
-      <arg name="preanalysis/robAngle"                            value="0.0"/> -->
-      <arg name="preanalysis/dsMethod"                            value="false"/>
-
-      <arg name="costmap/normal_gain"                             value="4.0"/>
-      <arg name="costmap/curv_gain"                               value="15.0"/>
-      <arg name="costmap/min_saturation_cost"                     value="0.0"/>
-      <arg name="costmap/max_saturation_cost"                     value="0.1"/>
-      <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
-      <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
-  </include>
-
-  <!-- <include file="$(find marble_virtual_comms)/launch/marble_virtual_comms.launch">
-      <arg name="vehicle" value="$(arg ns)"/>
-  </include> -->
 </launch>

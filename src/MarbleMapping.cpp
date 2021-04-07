@@ -1035,12 +1035,30 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
 
 #ifdef WITH_TRAVERSABILITY
-              if (m_enableTraversability)
-              {
-                RGBColor _color = it->getRoughColor();
-                std_msgs::ColorRGBA _color_msg; _color_msg.r = _color.r; _color_msg.g = _color.g; _color_msg.b = _color.b; _color_msg.a = 1.0f;
-                occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
-              }
+            if (m_enableTraversability)
+            {
+              RGBColor _color = it->getRoughColor();
+              std_msgs::ColorRGBA _color_msg; _color_msg.r = _color.r; _color_msg.g = _color.g; _color_msg.b = _color.b; _color_msg.a = 1.0f;
+              occupiedNodesVis.markers[idx].colors.push_back(_color_msg);
+            }
+            else
+            {
+              double minX, minY, minZ, maxX, maxY, maxZ;
+              m_octree->getMetricMin(minX, minY, minZ);
+              m_octree->getMetricMax(maxX, maxY, maxZ);
+
+              double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
+              occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
+            }
+#else
+            {
+              double minX, minY, minZ, maxX, maxY, maxZ;
+              m_octree->getMetricMin(minX, minY, minZ);
+              m_octree->getMetricMax(maxX, maxY, maxZ);
+
+              double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
+              occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
+            }
 #endif
           }
 

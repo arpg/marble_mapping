@@ -1,0 +1,195 @@
+<launch>
+
+    <!--
+    [horiz/os_cloud_node/points]->(curvy_terrain_mapper)->[horiz/os_cloud_node/points/cost_norm_cloud]->(approx_time_concatenate_server)->[$input_cloud_topic/cost_norm_cloud/prevoxfilter]->(voxelgrid filter)->[$input_cloud_topic/cost_norm_cloud]->(inner cropbox filter)->[$input_cloud_topic/cost_norm_cloud/cropped]->(outer cropbox filter)->[$input_cloud_topic/cost_norm_cloud/cropped2]->(relay)->[$output_cloud_topic]
+    [pico_flexx_left/points]->(curvy_terrain_mapper)->[pico_flexx_left/points/cost_norm_cloud]- - - - - -^
+    [pico_flexx_right/points]->(curvy_terrain_mapper)->[pico_flexx_right/points/cost_norm_cloud]- - - - -^
+    -->
+
+
+    <arg name="vehicle_name"                    default="H01"/>
+    <!-- <arg name="enable_rviz"                     default="true"/> -->
+
+    <arg name="enable_debug"                    default="false"/>
+    <!-- <arg name="enable_ctm"                      default="true"/> -->
+    <!-- <arg name="enable_octomap"                  default="true"/> -->
+    <!-- <arg name="enable_marble_mapping"           default="false"/> -->
+    <arg name="enable_inner_crop"               default="true"/>
+    <arg name="enable_outer_crop"               default="false"/>
+    <arg name="enable_picoflexx_points"         default="true" />
+    <arg name="enable_voxfilter"                default="true" />
+    <!-- <arg name="enable_planning"                 default="false"/> -->
+
+    <arg name="fixed_frame_id"                  default="$(arg vehicle_name)/map"/>
+    <arg name="child_frame_id"                  default="$(arg vehicle_name)/base_link"/>
+    <!-- <arg name="input_cloud_topic"               default="octomap_in"/> -->
+    <arg name="output_cloud_topic"              default="octomap_out"/>
+    <arg name="octomap_resolution"              default="0.2"/>
+    <arg name="range"                           default="7.0"/>
+    <!-- <arg name="trav_marker_density"             default="2"/> -->
+    <!-- <arg name="trav_marker_lower_thresh"        default="0.5"/> -->
+    <!-- <arg name="trav_marker_upper_thresh"        default="1.0"/> -->
+    <arg name="enable_traversability"           default="true" />
+    <arg name="enable_traversability_sharing"   default="false" />
+
+    <!-- <group ns="$(arg vehicle_name)"> -->
+
+        <!-- <include file="$(find octomap_server)/launch/octomap_mapping_rough.launch">
+            <arg name="cloud_in"                    value="$(arg input_cloud_topic)/cost_norm_cloud/cropped2"/>
+            <arg name="frame_id"                    value="$(arg fixed_frame_id)"/>
+            <arg name="base_frame_id"               value="$(arg child_frame_id)"/>
+            <arg name="filter_speckles"             value="true"/>
+            <arg name="filter_ground"               value="false"/>
+            <arg name="sensor_model/max_range"      value="$(arg range)"/>
+            <arg name="trav_marker_density"         value="$(arg trav_marker_density)"/>
+            <arg name="trav_marker_lower_thresh"    value="$(arg trav_marker_lower_thresh)"/>
+            <arg name="trav_marker_upper_thresh"    value="$(arg trav_marker_upper_thresh)"/>
+            <arg name="resolution"                  value="$(arg octomap_resolution)"/>
+            <arg name="sensor_model/hit"            value="0.8"/>
+            <arg name="sensor_model/miss"           value="0.45"/>
+            <arg name="sensor_model/min"            value="0.12"/>
+            <arg name="sensor_model/max"            value="0.97"/>
+            <arg name="compress_map"                value="true"/>
+        </include> -->
+
+        <group ns="horiz/os_cloud_node">
+            <arg name="cloud_topic"         default="points"/>
+            <!-- CURVY TERRAIN MAPPER -->
+            <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch" >
+                <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
+                <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+                <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
+                <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
+                <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
+                <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
+                <arg name="preanalysis/dsFlag"                              value="true"/>
+                <arg name="preanalysis/dsResolution"                        value="0.05"/>
+                <arg name="preanalysis/gpFlag"                              value="false"/>
+                <arg name="preanalysis/gpAngle"                             value="1.0"/>
+                <arg name="preanalysis/pfActive"                            value="false"/>
+                <arg name="preanalysis/fsActive"                            value="false"/>
+                <arg name="preanalysis/dsMethod"                            value="false"/>
+                <arg name="costmap/normal_gain"                             value="20.0"/>
+                <arg name="costmap/curv_gain"                               value="5.0"/>
+                <arg name="costmap/min_saturation_cost"                     value="0.0"/>
+                <arg name="costmap/max_saturation_cost"                     value="0.5"/>
+                <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
+                <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
+            </include>
+        </group>
+
+        <group ns="pico_flexx_left" if="$(arg enable_picoflexx_points)">
+            <arg name="cloud_topic"         default="points"/>
+            <!-- CURVY TERRAIN MAPPER -->
+            <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch" >
+                <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
+                <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+                <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
+                <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
+                <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
+                <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
+                <arg name="preanalysis/dsFlag"                              value="true"/>
+                <arg name="preanalysis/dsResolution"                        value="0.05"/>
+                <arg name="preanalysis/gpFlag"                              value="true"/>
+                <arg name="preanalysis/gpAngle"                             value="5.0"/>
+                <arg name="preanalysis/pfActive"                            value="false"/>
+                <arg name="preanalysis/fsActive"                            value="false"/>
+                <arg name="preanalysis/dsMethod"                            value="false"/>
+                <arg name="costmap/normal_gain"                             value="20.0"/>
+                <arg name="costmap/curv_gain"                               value="5.0"/>
+                <arg name="costmap/min_saturation_cost"                     value="0.0"/>
+                <arg name="costmap/max_saturation_cost"                     value="1.0"/>
+                <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
+                <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
+            </include>
+        </group>
+
+        <group ns="pico_flexx_right" if="$(arg enable_picoflexx_points)">
+            <arg name="cloud_topic"         default="points"/>
+            <!-- CURVY TERRAIN MAPPER -->
+            <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch" >
+                <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
+                <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+                <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
+                <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
+                <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
+                <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
+                <arg name="preanalysis/dsFlag"                              value="true"/>
+                <arg name="preanalysis/dsResolution"                        value="0.05"/>
+                <arg name="preanalysis/gpFlag"                              value="true"/>
+                <arg name="preanalysis/gpAngle"                             value="5.0"/>
+                <arg name="preanalysis/pfActive"                            value="false"/>
+                <arg name="preanalysis/fsActive"                            value="false"/>
+                <arg name="preanalysis/dsMethod"                            value="false"/>
+                <arg name="costmap/normal_gain"                             value="20.0"/>
+                <arg name="costmap/curv_gain"                               value="5.0"/>
+                <arg name="costmap/min_saturation_cost"                     value="0.0"/>
+                <arg name="costmap/max_saturation_cost"                     value="1.0"/>
+                <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
+                <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
+            </include>
+        </group>
+
+        <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch" if="$(eval enable_picoflexx_points and vehicle_name[0:1]=='H')">
+            <arg name="input0_topic"      value="horiz/os_cloud_node/points/cost_norm_cloud" />
+            <arg name="input1_topic"      value="pico_flexx_left/points/cost_norm_cloud" />
+            <arg name="input2_topic"      value="pico_flexx_right/points/cost_norm_cloud" />
+            <arg name="output_topic"      value="$(arg output_cloud_topic)/concatenated" />
+            <arg name="output_resolution" value="$(arg octomap_resolution)"/>
+            <arg name="common_frame_id"   value="$(arg child_frame_id)"/>
+            <arg name="min_rate"          value="4"/>
+        </include>
+        <node pkg="topic_tools" type="relay" name="concatenated_relay" args="horiz/os_cloud_node/points $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)"/>
+
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_filter_nodelet" args="standalone pcl/VoxelGrid pcl_manager" output="log" if="$(arg enable_voxfilter)">
+            <!-- <remap from="~input"                  to="mixed_cloud" /> -->
+            <remap from="~input"                  to="$(arg output_cloud_topic)/concatenated" />
+            <remap from="~output"                 to="$(arg output_cloud_topic)/voxfiltered" />
+            <param name="filter_field_name"       value="z"/>
+            <param name="filter_limit_min"        value="-100000"/>
+            <param name="filter_limit_max"        value="100000"/>
+            <param name="filter_limit_negative"   value="false"/>
+            <param name="leaf_size"               value="$(arg octomap_resolution)/2"/>
+        </node>
+        <node pkg="topic_tools" type="relay" name="voxfiltered_relay" args="$(arg output_cloud_topic)/concatenated $(arg output_cloud_topic)/voxfiltered" unless="$(arg enable_voxfilter)"/>
+
+        <!-- INNER POINTCLOUD CROP -->
+        <node pkg="nodelet" type="nodelet" name="inner_crop_filter" args="standalone pcl/CropBox" output="screen" if="$(arg enable_inner_crop)">
+        <remap from="~input" to="$(arg output_cloud_topic)/voxfiltered" />
+        <remap from="~output" to="$(arg output_cloud_topic)/inner_cropped" />
+        <rosparam>
+            # true: no points in the box, false: no points outside the box
+            negative: true
+            min_x: -1.0
+            max_x: 1.0
+            min_y: -1.0
+            max_y: 1.0
+            min_z: -0.5
+            max_z: 1.0
+        </rosparam>
+        </node>
+        <node pkg="topic_tools" type="relay" name="inner_crop_relay" args="$(arg output_cloud_topic)/voxfiltered $(arg output_cloud_topic)/inner_cropped" unless="$(arg enable_inner_crop)"/>
+
+        <!-- OUTER POINTCLOUD CROP -->
+        <node pkg="nodelet" type="nodelet" name="outer_crop_filter" args="standalone pcl/CropBox" output="screen" if="$(arg enable_outer_crop)">
+        <remap from="~input" to="$(arg output_cloud_topic)/inner_cropped" />
+        <remap from="~output" to="$(arg output_cloud_topic)/outer_cropped" />
+        <rosparam>
+            # true: no points in the box, false: no points outside the box
+            negative: false
+            min_x: -1.0
+            max_x: 10.0
+            min_y: -5.0
+            max_y: 5.0
+            min_z: -0.25
+            max_z: 0.25
+        </rosparam>
+        </node>
+        <node pkg="topic_tools" type="relay" name="outer_crop_relay" args="$(arg output_cloud_topic)/inner_cropped $(arg output_cloud_topic)/outer_cropped" unless="$(arg enable_outer_crop)"/>
+
+        <node pkg="topic_tools" type="relay" name="octomap_out_relay" args="$(arg output_cloud_topic)/outer_cropped $(arg output_cloud_topic)"/>
+
+        <!-- <include file="$(find curvy_terrain_mapper)/launch/spot_cam_points.launch" if="$(eval vehicle_name[0:1]=='D')"/> -->
+    <!-- </group> -->
+
+</launch>
