@@ -44,7 +44,7 @@
   <!-- Whether to publish neighbor maps to neighbors/VEHICLE/map -->
   <arg name="publish_neighbor_maps" default="false" />
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
-  <arg name="remove_ceiling" default="true" />
+  <arg name="remove_ceiling" default="false" />
   <arg name="remove_ceiling_depth" default="4" />
   <!-- Whether to publish the diff maps -->
   <arg name="publish_diffs" default="true" />
@@ -56,6 +56,7 @@
   <arg name="diff_merged" default="false" />
   <!-- Remove ground plane occupancy from occupancy grid (boolean)-->
   <arg name="filter_ground" default="false" />
+  <arg name="filter_speckles" default="true" />
   <!-- Sensor model parameters -->
   <arg name="sensor_model/hit" default=".95" />
   <arg name="sensor_model/miss" default=".48" />
@@ -67,7 +68,7 @@
   <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
   <arg name="enable_traversability_sharing"   default="false" />
 
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="screen">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="screen" respawn="true">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />

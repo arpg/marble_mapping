@@ -513,14 +513,14 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   pcl::PassThrough<PCLPoint> pass_z;
   pass_z.setFilterFieldName("z");
   pass_z.setFilterLimits(m_pointcloudMinZ, m_pointcloudMaxZ);
-#ifdef WITH_TRAVERSABILITY
-  pcl::PassThrough<PCLPoint> pass_int;
-  if (m_enableTraversability)
-  {
-    pass_int.setFilterFieldName("intensity");
-    pass_int.setFilterLimits(0, 1);
-  }
-#endif
+// #ifdef WITH_TRAVERSABILITY
+//   pcl::PassThrough<PCLPoint> pass_int;
+//   if (m_enableTraversability)
+//   {
+//     pass_int.setFilterFieldName("intensity");
+//     pass_int.setFilterLimits(0, 1);
+//   }
+// #endif
 
   PCLPointCloud pc_ground; // segmented ground plane
   PCLPointCloud pc_nonground; // everything else
@@ -549,13 +549,13 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
-#ifdef WITH_TRAVERSABILITY
-    if (m_enableTraversability)
-    {
-      pass_int.setInputCloud(pc.makeShared());
-      pass_int.filter(pc);
-    }
-#endif
+// #ifdef WITH_TRAVERSABILITY
+//     if (m_enableTraversability)
+//     {
+//       pass_int.setInputCloud(pc.makeShared());
+//       pass_int.filter(pc);
+//     }
+// #endif
     filterGroundPlane(pc, pc_ground, pc_nonground);
 
     // transform clouds to world frame for insertion
@@ -572,13 +572,13 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
-#ifdef WITH_TRAVERSABILITY
-    if (m_enableTraversability)
-    {
-      pass_int.setInputCloud(pc.makeShared());
-      pass_int.filter(pc);
-    }
-#endif
+// #ifdef WITH_TRAVERSABILITY
+//     if (m_enableTraversability)
+//     {
+//       pass_int.setInputCloud(pc.makeShared());
+//       pass_int.filter(pc);
+//     }
+// #endif
 
     pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
@@ -657,7 +657,8 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
           if (m_enableTraversability)
           {
-            m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
+            // if (!isnan(it->intensity))
+              m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
           }
 #endif
         }
@@ -714,7 +715,8 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
     if (m_enableTraversability)
     {
-      m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
+      // if (!isnan(m_octree->getNodeRough(*it)))
+        m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
     }
 #endif
     if (m_buildCameraMap && pointInsideView(point)) {
@@ -928,7 +930,8 @@ void MarbleMapping::mergeNeighbors() {
 #ifdef WITH_TRAVERSABILITY
                 if (m_enableTraversability)
                 {
-                  m_merged_tree->averageNodeRough(nodeKey, it->getRough());
+                  // if(!isnan(it->getRough()))
+                    m_merged_tree->averageNodeRough(nodeKey, it->getRough());
                 }
 #endif
               }
@@ -1237,6 +1240,7 @@ bool MarbleMapping::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Res
   occupiedNodesVis.markers.resize(m_treeDepth +1);
   ros::Time rostime = ros::Time::now();
   m_octree->clear();
+  m_merged_tree->clear();
   ROS_INFO("Cleared octomap");
 
   publishBinaryOctoMap(rostime);
