@@ -600,6 +600,36 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   ROS_DEBUG("Pointcloud insertion in MarbleMapping done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
   pclCountProcessed++;
+
+  auto sensorOrigin = sensorToWorldTf.getOrigin();
+  // std::cout << "origin: [" << sensorOrigin.getX() << ", " << sensorOrigin.getY() << ", "  << sensorOrigin.getZ() << "]" << std::endl;
+
+  point3d minBB = point3d(sensorOrigin.getX(), sensorOrigin.getY(), sensorOrigin.getZ()) - point3d(7.5,7.5,7.5);
+  point3d maxBB = point3d(sensorOrigin.getX(), sensorOrigin.getY(), sensorOrigin.getZ()) + point3d(7.5,7.5,7.5);
+
+    if (m_octree)
+    {
+      boost::mutex::scoped_lock lock(m_mtx);
+      OcTreeKey minKey, maxKey;
+
+      if (!m_octree->coordToKeyChecked(minBB, minKey) || !m_octree->coordToKeyChecked(maxBB, maxKey))
+      {
+        return;
+      }
+
+      for(OcTreeT::leaf_iterator it = m_octree->begin_leafs(),
+          end=m_octree->end_leafs(); it!= end; ++it){
+        // check if outside of bbx:
+        OcTreeKey k = it.getKey();
+        if  (k[0] < minKey[0] || k[1] < minKey[1] || k[2] < minKey[2]
+          || k[0] > maxKey[0] || k[1] > maxKey[1] || k[2] > maxKey[2])
+        {
+          m_octree ->deleteNode(k, it.getDepth());
+        }
+      }
+    } else
+      std::cout << "Not implemented, Functionality not yet implemented for this octree type" << std::endl;
+
 }
 
 void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
