@@ -56,7 +56,8 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
-
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/conditional_removal.h>
 
 #include <tf/transform_listener.h>
 #include <tf/message_filter.h>
@@ -171,6 +172,7 @@ protected:
 
   int m_input;
   double m_maxRange;
+  double m_minRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
   std_msgs::ColorRGBA m_color;

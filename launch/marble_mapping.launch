@@ -14,6 +14,7 @@
   <arg name="cloud_in" default="points" />
   <!-- Maximum range to integrate (speedup!) -->
   <arg name="max_range" default="7.0" />
+  <arg name="min_range" default="0.65" />
 
   <!-- Performance Tuning Options-->
   <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
@@ -79,6 +80,7 @@
     <param name="multiagent" value="$(arg multiagent)" />
     <param name="input" value="$(arg input)" />
     <param name="sensor_model/max_range" value="$(arg max_range)" />
+    <param name="sensor_model/min_range" value="$(arg min_range)" />
     <param name="compress_maps" value="$(arg compress_maps)" />
     <param name="num_threads" value="$(arg num_threads)" />
     <param name="downsample_size" value="$(arg downsample_size)" />

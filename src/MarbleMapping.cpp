@@ -97,6 +97,7 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("ground_filter/plane_distance", m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
 
   m_nh_private.param("sensor_model/max_range", m_maxRange, m_maxRange);
+  m_nh_private.param("sensor_model/min_range", m_minRange, -1.0);
 
   m_nh_private.param("resolution", m_res, m_res);
   m_nh_private.param("merged_resolution", m_mres, 0.2);
@@ -502,6 +503,8 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   // ground filtering in base frame
   //
   PCLPointCloud pc; // input cloud for filtering and ground-detection
+  //pcl::PointCloud<pcl::PointXYZ>::Ptr pc (new pcl::PointCloud<pcl::PointXYZ>);
+
   pcl::fromROSMsg(*cloud, pc);
 
   if (m_downsampleSize > 0.0) {
@@ -581,6 +584,18 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
 
+    // Remove any spurious points that still exist
+    if(m_enable_radius_outlier_removal){
+      pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+      // build the filter
+      outrem.setInputCloud(pc.makeShared());
+      outrem.setRadiusSearch(0.2);
+      outrem.setMinNeighborsInRadius (2);
+      outrem.setKeepOrganized(true);
+      // apply filter
+      outrem.filter (pc);
+    }
+
     pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
     pc_ground.header = pc.header;
@@ -643,8 +658,8 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
     unsigned threadIdx = omp_get_thread_num();
     KeyRay* keyRay = &(keyrays.at(threadIdx));
 
-    // maxrange check
-    if ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange) ) {
+    // maxrange / minrange check
+    if ( ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange)) && ((m_minRange < 0.0) || ((point - sensorOrigin).norm() >= m_minRange)) ) {
 
       // free cells
       if (m_octree->computeRayKeys(sensorOrigin, point, *keyRay)) {
