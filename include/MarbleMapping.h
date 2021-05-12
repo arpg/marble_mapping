@@ -234,6 +234,10 @@ protected:
   std::string m_diff_pre;
   std::string m_diff_post;
   std::map<std::string, ros::Subscriber> m_diffSubs;
+
+
+  // Radius Outlier Removal
+  bool m_enable_radius_outlier_removal;
 };
 }
 
