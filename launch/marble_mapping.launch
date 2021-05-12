@@ -14,16 +14,31 @@
   <arg name="cloud_in" default="points" />
   <!-- Maximum range to integrate (speedup!) -->
   <arg name="max_range" default="7.0" />
-  <!-- Number of threads to use. Setting '0' or a value greater than maximum value
-       will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
-       At low resolutions recommend '1' for best performance -->
+
+  <!-- Performance Tuning Options-->
+  <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
+  <arg name="compress_maps" default="false" />
+  <!-- Number of threads to use for PCL processing. Setting '0' or a value greater than
+       maximum value will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
+       At low resolutions recommend '1' for best performance.
+       Note that this is in addition to the 2 threads used for map publishing! -->
   <arg name="num_threads" default="1" />
   <!-- Resolution to downsample point cloud using Voxel Grid Filter.  Set to 0 for none -->
   <arg name="downsample_size" default="0.0" />
+  <!-- Ignore point clouds older than the duration given, in order to throttle the processing
+       and improve performance.  If the node is processing extremely slowly, this may result
+       in holes in the map!  Use a high number such as 100.0 to use ALL pointclouds.
+       If already throttling the input, this should likely be left high. -->
+  <arg name="pcl_time_limit" default="100.0" />
+  <!-- How often to publish octomaps and optional maps (marker array, point cloud) -->
+  <arg name="publish_duration" default="0.1" />
+  <arg name="publish_optional_duration" default="0.2" />
+  <!-- Consider other options below such build_camera_map, remove_ceiling and other publishers -->
+
   <!-- Secondary camera settings for a restricted view map, such as for an artifact camera -->
-  <arg name="build_camera_map" default="true" />
-  <arg name="publish_camera_map" default="true" />
-  <arg name="publish_camera_view" default="true" />
+  <arg name="build_camera_map" default="false" />
+  <arg name="publish_camera_map" default="false" />
+  <arg name="publish_camera_view" default="false" />
   <arg name="camera_range" default="5.0" />
   <!-- FOV must be < 180 degrees. Input 180.0 for full 360 coverage. -->
   <arg name="camera_horizontal_fov" default="90.0" />
@@ -31,9 +46,6 @@
   <!-- Whether to publish merged maps -->
   <arg name="publish_merged_binary" default="true" />
   <arg name="publish_merged_full" default="false" />
-  <!-- How often to publish octomaps and optional maps (marker array, point cloud) -->
-  <arg name="publish_duration" default="0.1" />
-  <arg name="publish_optional_duration" default="0.2" />
   <!-- Whether to publish the marker arrays and point cloud -->
   <arg name="publish_marker_array" default="true" />
   <arg name="publish_free_space" default="false" />
@@ -67,8 +79,10 @@
     <param name="multiagent" value="$(arg multiagent)" />
     <param name="input" value="$(arg input)" />
     <param name="sensor_model/max_range" value="$(arg max_range)" />
+    <param name="compress_maps" value="$(arg compress_maps)" />
     <param name="num_threads" value="$(arg num_threads)" />
     <param name="downsample_size" value="$(arg downsample_size)" />
+    <param name="pcl_time_limit" value="$(arg pcl_time_limit)" />
 
     <param name="build_camera_map" value="$(arg build_camera_map)" />
     <param name="publish_camera_map" value="$(arg publish_camera_map)" />

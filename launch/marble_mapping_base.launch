@@ -14,6 +14,8 @@
   <arg name="cloud_in" default="points" />
   <!-- Maximum range to integrate (speedup!) -->
   <arg name="max_range" default="7.0" />
+  <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
+  <arg name="compress_maps" default="true" />
   <!-- Number of threads to use. Setting '0' or a value greater than maximum value
        will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
        At low resolutions recommend '1' for best performance -->
@@ -67,6 +69,7 @@
     <param name="multiagent" value="$(arg multiagent)" />
     <param name="input" value="$(arg input)" />
     <param name="sensor_model/max_range" value="$(arg max_range)" />
+    <param name="compress_maps" value="$(arg compress_maps)" />
     <param name="num_threads" value="$(arg num_threads)" />
     <param name="downsample_size" value="$(arg downsample_size)" />
 

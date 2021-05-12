@@ -79,8 +79,8 @@ int main(int argc, char** argv){
   }
 
   try{
-    // Use a separate thread for the optional map publisher
-    ros::AsyncSpinner async_spinner(1, &server.pub_queue);
+    // Use separate threads for the map publishers
+    ros::AsyncSpinner async_spinner(2, &server.pub_queue);
     async_spinner.start();
     ros::spin();
   }catch(std::runtime_error& e){

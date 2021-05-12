@@ -82,8 +82,11 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("occupancy_min_z", m_occupancyMinZ,m_occupancyMinZ);
   m_nh_private.param("occupancy_max_z", m_occupancyMaxZ,m_occupancyMaxZ);
 
+  m_nh_private.param("compress_maps", m_compressMaps, true);
   m_nh_private.param("num_threads", m_numThreads, 1);
   m_nh_private.param("downsample_size", m_downsampleSize, 0.0);
+  m_nh_private.param("pcl_time_limit", m_pclTimeLimit, 100.0);
+
   m_nh_private.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
   m_nh_private.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
   // distance of points from plane for RANSAC
@@ -318,9 +321,14 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
     m_neighborsSub = m_nh.subscribe("neighbor_maps", 100, &MarbleMapping::neighborMapsCallback, this);
     // Timer for updating the local map diff that will be broadcast
     diff_timer = m_nh.createTimer(ros::Duration(diff_duration), &MarbleMapping::updateDiff, this);
-    // Timer for publishing the OctoMaps
-    pub_timer = m_nh.createTimer(ros::Duration(pub_duration), &MarbleMapping::publishOctoMaps, this);
   }
+
+  // Timer for publishing the OctoMaps
+  ros::TimerOptions ops_pub;
+  ops_pub.period = ros::Duration(pub_duration);
+  ops_pub.callback = boost::bind(&MarbleMapping::publishOctoMaps, this, _1);
+  if (!octomapInput) ops_pub.callback_queue = &pub_queue;
+  pub_timer = m_nh.createTimer(ops_pub);
 
   // Timer to publish the optional maps, on a separate thread
   if (m_publishMarkerArray || m_publishFreeSpace || m_publishPointCloud) {
@@ -332,6 +340,12 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
     if (!octomapInput) ops.callback_queue = &pub_queue;
     pub_opt_timer = m_nh.createTimer(ops);
   }
+
+  pclTimeLimit = ros::Duration(0.0);
+  longTimeDiff = ros::Duration(0.0);
+  pclCount = 0;
+  pclCountProcessed = 0;
+  pclDropped = 0;
 
   dynamic_reconfigure::Server<MarbleMappingConfig>::CallbackType f;
   f = boost::bind(&MarbleMapping::reconfigureCallback, this, _1, _2);
@@ -408,6 +422,7 @@ void MarbleMapping::neighborMapsCallback(const marble_mapping::OctomapNeighborsC
 
   // If hard reset passed, start the self and merged map over!
   if (neighbors.hardReset) {
+    boost::mutex::scoped_lock lock(m_mtx);
     m_octree->clear();
     if (m_diffMerged)
       m_merged_tree->resetChangeDetection();
@@ -424,11 +439,14 @@ void MarbleMapping::neighborMapsCallback(const marble_mapping::OctomapNeighborsC
     ROS_ERROR("merging error! %s", e.what());
   }
 
-  boost::mutex::scoped_lock lock(m_mtx);
-  m_merged_tree->prune();
+  if (m_compressMaps) {
+    boost::mutex::scoped_lock lock(m_mtx);
+    m_merged_tree->prune();
+  }
 }
 
 void MarbleMapping::octomapCallback(const octomap_msgs::OctomapConstPtr& msg) {
+  boost::mutex::scoped_lock lock(m_mtx);
   delete m_merged_tree;
   m_merged_tree = (octomap::OcTreeStamped*)octomap_msgs::binaryMsgToMap(*msg);
 }
@@ -445,21 +463,40 @@ void MarbleMapping::octomapDiffsCallback(const octomap_msgs::OctomapConstPtr& ms
     ROS_ERROR("merging error! %s", e.what());
   }
 
-  boost::mutex::scoped_lock lock(m_mtx);
-  m_merged_tree->prune();
+  if (m_compressMaps) {
+    boost::mutex::scoped_lock lock(m_mtx);
+    m_merged_tree->prune();
+  }
 
   // Publish the binary maps
-  ros::Time rostime = ros::Time::now();
-  if (m_publishMergedBinaryMap)
-    publishMergedBinaryOctoMap(rostime);
-
-  if (m_publishNeighborMaps)
-    publishNeighborMaps(rostime);
+  // ros::Time rostime = ros::Time::now();
+  // if (m_publishMergedBinaryMap)
+  //   publishMergedBinaryOctoMap(rostime);
+  //
+  // if (m_publishNeighborMaps)
+  //   publishNeighborMaps(rostime);
 }
 
 void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
-  ros::WallTime startTime = ros::WallTime::now();
+  // Get the initial time offset for the sensor
+  // This might not work well if multiple sensors publish to the same topic, instead of using
+  // a topic_tools to merge them, where the timestamps get rewritten!
+  if (pclTimeLimit == ros::Duration(0.0)) {
+    pclTimeLimit = ros::Time().now() - cloud->header.stamp + ros::Duration(m_pclTimeLimit);
+  }
 
+  pclCount++;
+  // Drop any "old" pointclouds
+  // For multiple sensors, might want a way to ensure we get a good mix of each!
+  if (cloud->header.stamp + pclTimeLimit < ros::Time().now()) {
+    pclDropped++;
+    ros::Duration timediff = ros::Time::now() - cloud->header.stamp - pclTimeLimit + ros::Duration(m_pclTimeLimit);
+    if (timediff > longTimeDiff) longTimeDiff = timediff;
+
+    return;
+  }
+
+  ros::WallTime startTime = ros::WallTime::now();
 
   //
   // ground filtering in base frame
@@ -553,12 +590,16 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   insertScan(sensorToWorldTf, pc_ground, pc_nonground);
 
-  m_octree->prune();
-  boost::mutex::scoped_lock lock(m_mtx);
-  m_merged_tree->prune();
+  if (m_compressMaps) {
+    boost::mutex::scoped_lock lock(m_mtx);
+    m_octree->prune();
+    m_merged_tree->prune();
+  }
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in MarbleMapping done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
+
+  pclCountProcessed++;
 }
 
 void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
@@ -709,11 +750,13 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
   int num_nodes;
 
   // Update the diff tree from either the merged map or self map
+  boost::mutex::scoped_lock lock(m_mtx);
   m_diff_tree->clear();
   if (m_diffMerged)
     num_nodes = updateDiffTree(m_merged_tree, pclDiffCloud);
   else
     num_nodes = updateDiffTree(m_octree, pclDiffCloud);
+  lock.unlock();
 
   // Only update the diff map if enough has changed
   if (num_nodes > diff_threshold) {
@@ -744,10 +787,25 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
       m_pointCloudDiffPub.publish(cloud);
     }
 
+    boost::mutex::scoped_lock lock(m_mtx);
     if (m_diffMerged)
       m_merged_tree->resetChangeDetection();
     else
       m_octree->resetChangeDetection();
+  }
+
+  // Stats on dropped clouds
+  if (pclDropped > 0) {
+    double dropped = (double)pclDropped / (double)pclCount * 100.0;
+    ROS_INFO("Dropped %.1f%% of clouds.  Largest delay was %.2f seconds. Processed %d clouds.", dropped, longTimeDiff.toSec(), pclCountProcessed);
+    pclCount = 0;
+    pclCountProcessed = 0;
+    pclDropped = 0;
+    longTimeDiff = ros::Duration(0.0);
+  } else {
+    ROS_INFO("Processed %d clouds", pclCountProcessed);
+    pclCount = 0;
+    pclCountProcessed = 0;
   }
 }
 
@@ -880,6 +938,7 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
   // init pointcloud:
   pcl::PointCloud<PCLPoint> pclCloud;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   // Only traverse the tree if we're publishing a marker array or point cloud
   if (publishMarkerArray || publishFreeMarkerArray || publishPointCloud) {
     // each array stores all cubes of a different size, one for each depth level:
@@ -887,7 +946,6 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
     occupiedNodesVis.markers.resize(m_treeDepth+1);
 
     // now, traverse all leafs in the tree:
-    boost::mutex::scoped_lock lock(m_mtx);
     for (OcTreeStamped::iterator it = m_merged_tree->begin(m_maxTreeDepth),
         end = m_merged_tree->end(); it != end; ++it) {
       if (m_merged_tree->isNodeOccupied(*it)) {
@@ -1132,6 +1190,7 @@ void MarbleMapping::publishBinaryOctoMap(const ros::Time& rostime) const{
   map.header.frame_id = m_worldFrameId;
   map.header.stamp = rostime;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::binaryMapToMsg(*m_octree, map))
     m_binaryMapPub.publish(map);
   else
@@ -1144,6 +1203,7 @@ void MarbleMapping::publishFullOctoMap(const ros::Time& rostime) const{
   map.header.frame_id = m_worldFrameId;
   map.header.stamp = rostime;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::fullMapToMsg(*m_octree, map))
     m_fullMapPub.publish(map);
   else
@@ -1156,6 +1216,7 @@ void MarbleMapping::publishMergedBinaryOctoMap(const ros::Time& rostime) const{
   map.header.frame_id = m_worldFrameId;
   map.header.stamp = rostime;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::binaryMapToMsg(*m_merged_tree, map)) {
     map.id = "OcTree";
     m_mergedBinaryMapPub.publish(map);
@@ -1169,6 +1230,7 @@ void MarbleMapping::publishMergedFullOctoMap(const ros::Time& rostime) const{
   map.header.frame_id = m_worldFrameId;
   map.header.stamp = rostime;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::fullMapToMsg(*m_merged_tree, map)) {
     map.id = "OcTree";
     m_mergedFullMapPub.publish(map);
@@ -1182,6 +1244,7 @@ void MarbleMapping::publishCameraOctoMap(const ros::Time& rostime) const{
   map.header.frame_id = m_worldFrameId;
   map.header.stamp = rostime;
 
+  boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::binaryMapToMsg(*m_camera_tree, map)) {
     map.id = "OcTree";
     m_cameraMapPub.publish(map);
@@ -1190,6 +1253,7 @@ void MarbleMapping::publishCameraOctoMap(const ros::Time& rostime) const{
 }
 
 void MarbleMapping::publishNeighborMaps(const ros::Time& rostime) {
+  boost::mutex::scoped_lock lock(m_mtx);
   for (auto& n : neighbor_maps) {
     // Find any maps that have been updated, and have subscribers
     if (neighbor_updated.at(n.first) && (neighbor_pubs.at(n.first).getNumSubscribers() > 0)) {
@@ -1318,6 +1382,7 @@ void MarbleMapping::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
 bool MarbleMapping::isSpeckleNode(const OcTreeKey&nKey) const {
   OcTreeKey key;
   bool neighborFound = false;
+  boost::mutex::scoped_lock lock(m_mtx);
   for (key[2] = nKey[2] - 1; !neighborFound && key[2] <= nKey[2] + 1; ++key[2]){
     for (key[1] = nKey[1] - 1; !neighborFound && key[1] <= nKey[1] + 1; ++key[1]){
       for (key[0] = nKey[0] - 1; !neighborFound && key[0] <= nKey[0] + 1; ++key[0]){

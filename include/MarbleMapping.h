@@ -44,7 +44,12 @@
 #include <pcl/conversions.h>
 #include <pcl_ros/transforms.h>
 #include <pcl/sample_consensus/method_types.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // pcl::SAC_SAMPLE_SIZE is protected since PCL 1.8.0
 #include <pcl/sample_consensus/model_types.h>
+#pragma GCC diagnostic pop
+
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/extract_indices.h>
@@ -148,7 +153,7 @@ protected:
   ros::Timer pub_timer;
   ros::Timer pub_opt_timer;
   tf::TransformListener m_tfListener;
-  boost::mutex m_mtx;
+  mutable boost::mutex m_mtx;
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<MarbleMappingConfig> m_reconfigureServer;
 
@@ -212,8 +217,20 @@ protected:
   double m_pointcloudMaxZ;
   double m_occupancyMinZ;
   double m_occupancyMaxZ;
+
+  // Performance Tuning
+  bool m_compressMaps;
   double m_downsampleSize;
+  double m_pclTimeLimit;
   int m_numThreads;
+
+  // Track dropped PCL
+  ros::Duration pclTimeLimit;
+  ros::Duration longTimeDiff;
+  unsigned int pclCount;
+  unsigned int pclCountProcessed;
+  unsigned int pclDropped;
+
   bool m_filterSpeckles;
 
   bool m_filterGroundPlane;

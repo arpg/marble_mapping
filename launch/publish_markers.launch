@@ -11,6 +11,8 @@
   <arg name="input" default="2" />
   <!-- Data source to integrate (OctoMap) -->
   <arg name="cloud_in" default="merged_map" />
+  <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
+  <arg name="compress_maps" default="false" />
   <!-- Topic prefix to output to, ie merged_map outputs to merged_map_markers, etc -->
   <arg name="prefix" default="merged_map" />
   <!-- How often to publish these maps (marker array, point cloud) -->
@@ -27,6 +29,7 @@
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
     <param name="input" value="$(arg input)" />
+    <param name="compress_maps" value="$(arg compress_maps)" />
 
     <param name="publish_optional_duration" value="$(arg publish_optional_duration)" />
     <param name="publish_marker_array" value="$(arg publish_marker_array)" />
