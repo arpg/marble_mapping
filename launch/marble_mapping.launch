@@ -16,12 +16,6 @@
   <arg name="cloud_in" default="points" />
   <!-- Maximum range to integrate (speedup!) -->
   <arg name="max_range" default="7.0" />
-<<<<<<< HEAD
-  <!-- Number of threads to use. Setting '0' or a value greater than maximum value
-       will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
-       At low resolutions recommend '1' for best performance -->
-  <arg name="num_threads" default="0" />
-=======
 
   <!-- Performance Tuning Options-->
   <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
@@ -31,7 +25,6 @@
        At low resolutions recommend '1' for best performance.
        Note that this is in addition to the 2 threads used for map publishing! -->
   <arg name="num_threads" default="1" />
->>>>>>> master
   <!-- Resolution to downsample point cloud using Voxel Grid Filter.  Set to 0 for none -->
   <arg name="downsample_size" default="0.0" />
   <!-- Ignore point clouds older than the duration given, in order to throttle the processing

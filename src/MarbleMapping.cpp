@@ -1062,12 +1062,8 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
     occupiedNodesVis.markers.resize(m_treeDepth+1);
 
     // now, traverse all leafs in the tree:
-<<<<<<< HEAD
     boost::mutex::scoped_lock lock(m_mtx);
     for (OcTreeTStamped::iterator it = m_merged_tree->begin(m_maxTreeDepth),
-=======
-    for (OcTreeStamped::iterator it = m_merged_tree->begin(m_maxTreeDepth),
->>>>>>> master
         end = m_merged_tree->end(); it != end; ++it) {
       if (m_merged_tree->isNodeOccupied(*it)) {
         // Skip this node if remove ceiling is enabled
