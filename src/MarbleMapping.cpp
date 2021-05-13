@@ -119,6 +119,8 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("diff_duration", diff_duration, 10.0);
   m_nh_private.param("diff_merged", m_diffMerged, false);
 
+  m_enable_radius_outlier_removal = true;
+
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
@@ -591,7 +593,7 @@ void MarbleMapping::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
       outrem.setInputCloud(pc.makeShared());
       outrem.setRadiusSearch(0.2);
       outrem.setMinNeighborsInRadius (2);
-      outrem.setKeepOrganized(true);
+      //outrem.setKeepOrganized(true);
       // apply filter
       outrem.filter (pc);
     }

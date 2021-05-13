@@ -25,7 +25,7 @@
        Note that this is in addition to the 2 threads used for map publishing! -->
   <arg name="num_threads" default="1" />
   <!-- Resolution to downsample point cloud using Voxel Grid Filter.  Set to 0 for none -->
-  <arg name="downsample_size" default="0.0" />
+  <arg name="downsample_size" default="0.05" />
   <!-- Ignore point clouds older than the duration given, in order to throttle the processing
        and improve performance.  If the node is processing extremely slowly, this may result
        in holes in the map!  Use a high number such as 100.0 to use ALL pointclouds.
