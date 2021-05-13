@@ -80,7 +80,7 @@
   <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
   <arg name="enable_traversability_sharing"   default="false" />
 
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" output="screen" respawn="true">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" output="screen">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />

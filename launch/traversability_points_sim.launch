@@ -7,7 +7,7 @@
     -->
 
 
-    <arg name="vehicle_name"                    default="H01"/>
+    <arg name="vehicle_name"                    default="X1"/>
     <!-- <arg name="enable_rviz"                     default="true"/> -->
 
     <arg name="enable_debug"                    default="false"/>
@@ -16,7 +16,7 @@
     <!-- <arg name="enable_marble_mapping"           default="false"/> -->
     <arg name="enable_inner_crop"               default="true"/>
     <arg name="enable_outer_crop"               default="false"/>
-    <arg name="enable_picoflexx_points"         default="true" />
+    <!-- <arg name="enable_picoflexx_points"         default="true" /> -->
     <arg name="enable_voxfilter"                default="false" />
     <!-- <arg name="enable_planning"                 default="false"/> -->
 
@@ -34,7 +34,7 @@
     <!-- THROTTLE FREQUENCY (0 to disable) -->
     <arg name="throttle"                        default="0"/>
 
-    <group ns="horiz/os_cloud_node">
+    <group >
         <arg name="cloud_topic"         default="points"/>
         <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
@@ -61,7 +61,7 @@
         </include>
     </group>
 
-    <group ns="pico_flexx_left" if="$(arg enable_picoflexx_points)">
+    <group ns="front_down_rgbd_camera/depth">
         <arg name="cloud_topic"         default="points"/>
         <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
@@ -88,9 +88,8 @@
         </include>
     </group>
 
-    <group ns="pico_flexx_right" if="$(arg enable_picoflexx_points)">
+    <!-- <group ns="front_facing_rgbd_camera/depth">
         <arg name="cloud_topic"         default="points"/>
-        <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
             <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
             <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
@@ -113,22 +112,18 @@
             <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
             <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
         </include>
-        <!-- <node pkg="nodelet" type="nodelet" name="speckle_filter" args="standalone cob_3d_mapping_filters/SpeckleFilter">
-            <remap from="~point_cloud_in" to="$(arg cloud_topic)/cost_norm_cloud"/>
-            <remap from="~point_cloud_out" to="$(arg cloud_topic)/cost_norm_cloud/despeckled"/>
-        </node> -->
-    </group>
+    </group> -->
 
-    <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch" if="$(eval enable_picoflexx_points and vehicle_name[0:1]=='H')">
-        <arg name="input0_topic"      value="horiz/os_cloud_node/points/cost_norm_cloud" />
-        <arg name="input1_topic"      value="pico_flexx_left/points/cost_norm_cloud" />
-        <arg name="input2_topic"      value="pico_flexx_right/points/cost_norm_cloud" />
+    <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch">
+        <arg name="input0_topic"      value="points/cost_norm_cloud" />
+        <arg name="input1_topic"      value="front_down_rgbd_camera/depth/points/cost_norm_cloud" />
+        <!-- <arg name="input2_topic"      value="front_facing_rgbd_camera/depth/points/cost_norm_cloud" /> -->
         <arg name="output_topic"      value="$(arg output_cloud_topic)/concatenated" />
         <arg name="output_resolution" value="$(arg octomap_resolution)"/>
         <arg name="common_frame_id"   value="$(arg child_frame_id)"/>
         <arg name="min_rate"          value="4"/>
     </include>
-    <node pkg="topic_tools" type="relay" name="concatenated_relay" args="horiz/os_cloud_node/points/cost_norm_cloud $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)" respawn="true"/>
+    <!-- <node pkg="topic_tools" type="relay" name="concatenated_relay" args="points/cost_norm_cloud $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)" respawn="true"/> -->
 
     <node pkg="nodelet" type="nodelet" name="voxel_grid_filter_nodelet" args="standalone pcl/VoxelGrid pcl_manager" output="log" if="$(arg enable_voxfilter)" respawn="true">
         <!-- <remap from="~input"                  to="mixed_cloud" /> -->
