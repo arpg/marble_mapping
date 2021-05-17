@@ -146,12 +146,12 @@
     <rosparam>
         # true: no points in the box, false: no points outside the box
         negative: true
-        min_x: -0.75
-        max_x: 1.0
-        min_y: -0.4
-        max_y: 0.4
-        min_z: -0.2
-        max_z: 1.0
+        min_x: -1.0
+        max_x: 0.2
+        min_y: -0.5
+        max_y: 0.5
+        min_z: -0.75
+        max_z: 0.2
     </rosparam>
     </node>
     <node pkg="topic_tools" type="relay" name="inner_crop_relay" args="$(arg output_cloud_topic)/voxfiltered $(arg output_cloud_topic)/inner_cropped" unless="$(arg enable_inner_crop)" respawn="true"/>

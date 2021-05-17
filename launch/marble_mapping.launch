@@ -47,7 +47,7 @@
   <arg name="camera_vertical_fov" default="60.0" />
   <!-- Whether to publish merged maps -->
   <arg name="publish_merged_binary" default="true" />
-  <arg name="publish_merged_full" default="false" />
+  <arg name="publish_merged_full" default="true" />
   <!-- Whether to publish the marker arrays and point cloud -->
   <arg name="publish_marker_array" default="true" />
   <arg name="publish_free_space" default="false" />
@@ -80,7 +80,7 @@
   <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
   <arg name="enable_traversability_sharing"   default="false" />
 
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" output="screen">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" >
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
