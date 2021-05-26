@@ -119,7 +119,7 @@
         </node> -->
     </group>
 
-    <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch" if="$(eval enable_picoflexx_points and vehicle_name[0:1]=='H')">
+    <!-- <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch" if="$(eval enable_picoflexx_points and vehicle_name[0:1]=='H')">
         <arg name="input0_topic"      value="horiz/os_cloud_node/points/cost_norm_cloud" />
         <arg name="input1_topic"      value="pico_flexx_left/points/cost_norm_cloud" />
         <arg name="input2_topic"      value="pico_flexx_right/points/cost_norm_cloud" />
@@ -128,11 +128,14 @@
         <arg name="common_frame_id"   value="$(arg child_frame_id)"/>
         <arg name="min_rate"          value="4"/>
     </include>
-    <node pkg="topic_tools" type="relay" name="concatenated_relay" args="horiz/os_cloud_node/points/cost_norm_cloud $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="concatenated_relay" args="horiz/os_cloud_node/points/cost_norm_cloud $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)" respawn="true"/> -->
+    <node pkg="topic_tools" type="relay" name="ouster_horiz_points_relay" args="horiz/os_cloud_node/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="picoflexx_left_points_relay" args="pico_flexx_left/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="picoflexx_right_points_relay" args="pico_flexx_right/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
 
     <node pkg="nodelet" type="nodelet" name="voxel_grid_filter_nodelet" args="standalone pcl/VoxelGrid pcl_manager" output="log" if="$(arg enable_voxfilter)" respawn="true">
         <!-- <remap from="~input"                  to="mixed_cloud" /> -->
-        <remap from="~input"                  to="$(arg output_cloud_topic)/concatenated" />
+        <remap from="~input"                  to="$(arg output_cloud_topic)/mixed" />
         <remap from="~output"                 to="$(arg output_cloud_topic)/voxfiltered" />
         <param name="filter_field_name"       value="z"/>
         <param name="filter_limit_min"        value="-100000"/>
@@ -140,7 +143,7 @@
         <param name="filter_limit_negative"   value="false"/>
         <param name="leaf_size"               value="$(arg octomap_resolution)/2"/>
     </node>
-    <node pkg="topic_tools" type="relay" name="voxfiltered_relay" args="$(arg output_cloud_topic)/concatenated $(arg output_cloud_topic)/voxfiltered" unless="$(arg enable_voxfilter)" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="voxfiltered_relay" args="$(arg output_cloud_topic)/mixed $(arg output_cloud_topic)/voxfiltered" unless="$(arg enable_voxfilter)" respawn="true"/>
 
     <!-- INNER POINTCLOUD CROP -->
     <node pkg="nodelet" type="nodelet" name="inner_crop_filter" args="standalone pcl/CropBox" output="screen" if="$(arg enable_inner_crop)" respawn="true">
@@ -151,12 +154,18 @@
     <rosparam>
         # true: no points in the box, false: no points outside the box
         negative: true
-        min_x: -0.75
-        max_x: 1.0
-        min_y: -0.4
-        max_y: 0.4
-        min_z: -0.2
-        max_z: 1.0
+        <!-- min_x: -1.0
+        max_x: 0.2
+        min_y: -0.5
+        max_y: 0.5
+        min_z: -0.75
+        max_z: 0.2 -->
+        min_x: -1.1
+        max_x: 0.2
+        min_y: -0.35
+        max_y: 0.35
+        min_z: -0.75
+        max_z: 0.1
     </rosparam>
     </node>
     <node pkg="topic_tools" type="relay" name="inner_crop_relay" args="$(arg output_cloud_topic)/voxfiltered $(arg output_cloud_topic)/inner_cropped" unless="$(arg enable_inner_crop)" respawn="true"/>
