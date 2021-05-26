@@ -62,23 +62,57 @@
     </group>
 
     <group ns="pico_flexx_left" if="$(arg enable_picoflexx_points)">
-        <arg name="cloud_topic"         default="points"/>
+        <arg name="cloud_topic"             default="points"/>
+        <arg name="downsample_resolution"   default="0.05"/>
+        <arg name="enable_nan_removal"      default="false"/>
+        <arg name="enable_outlier_removal"  default="false"/>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                <!-- filter_field_name:     l          -->
+                filter_limit_max:      1000     
+                filter_limit_min:      -1000         
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  2             
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="nan_removal" args="standalone pcl/PassThrough" if="$(arg enable_nan_removal)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"             if="$(eval not downsample_resolution>0.0)"/>
+            <remap from="~input" to="$(arg cloud_topic)/downsampled" if="$(eval downsample_resolution>0.0)"/>
+            <remap from="~output" to="$(arg cloud_topic)/nan_filtered"/>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="radius_outlier_removal" args="standalone pcl/RadiusOutlierRemoval" if="$(arg enable_outlier_removal)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"              if="$(eval not downsample_resolution>0.0 and not enable_nan_removal)"/>
+            <remap from="~input" to="$(arg cloud_topic)/downsampled"  if="$(eval downsample_resolution>0.0 and not enable_nan_removal)"/>
+            <remap from="~input" to="$(arg cloud_topic)/nan_filtered" if="$(eval enable_nan_removal)"/>
+            <remap from="~output" to="$(arg cloud_topic)/inliers"/>
+            <param name="min_neighbors" value="2"/>
+            <param name="radius_search" value="$(arg octomap_resolution)"/>
+        </node>
         <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
             <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
-            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"              if="$(eval not downsample_resolution>0.0 and not enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/downsampled"  if="$(eval downsample_resolution>0.0 and not enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/nan_filtered" if="$(eval enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/inliers"      if="$(eval enable_outlier_removal)"/>
             <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
             <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
             <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
             <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
-            <arg name="preanalysis/dsFlag"                              value="true"/>
+            <arg name="preanalysis/dsFlag"                              value="false"/>
             <arg name="preanalysis/dsResolution"                        value="0.05"/>
             <arg name="preanalysis/gpFlag"                              value="true"/>
             <arg name="preanalysis/gpAngle"                             value="5.0"/>
             <arg name="preanalysis/pfActive"                            value="false"/>
             <arg name="preanalysis/fsActive"                            value="false"/>
             <arg name="preanalysis/dsMethod"                            value="false"/>
-            <arg name="regiongrowing/enable"                            value="true"/>
+            <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
             <arg name="costmap/curv_gain"                               value="5.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
@@ -90,10 +124,44 @@
 
     <group ns="pico_flexx_right" if="$(arg enable_picoflexx_points)">
         <arg name="cloud_topic"         default="points"/>
+        <arg name="downsample_resolution"   default="0.05"/>
+        <arg name="enable_nan_removal"      default="false"/>
+        <arg name="enable_outlier_removal"  default="false"/>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                <!-- filter_field_name:     l          -->
+                filter_limit_max:      1000     
+                filter_limit_min:      -1000         
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  2             
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="nan_removal" args="standalone pcl/PassThrough" if="$(arg enable_nan_removal)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"             if="$(eval not downsample_resolution>0.0)"/>
+            <remap from="~input" to="$(arg cloud_topic)/downsampled" if="$(eval downsample_resolution>0.0)"/>
+            <remap from="~output" to="$(arg cloud_topic)/nan_filtered"/>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="radius_outlier_removal" args="standalone pcl/RadiusOutlierRemoval" if="$(arg enable_outlier_removal)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)"              if="$(eval not downsample_resolution>0.0 and not enable_nan_removal)"/>
+            <remap from="~input" to="$(arg cloud_topic)/downsampled"  if="$(eval downsample_resolution>0.0 and not enable_nan_removal)"/>
+            <remap from="~input" to="$(arg cloud_topic)/nan_filtered" if="$(eval enable_nan_removal)"/>
+            <remap from="~output" to="$(arg cloud_topic)/inliers"/>
+            <param name="min_neighbors" value="2"/>
+            <param name="radius_search" value="$(arg octomap_resolution)"/>
+        </node>
         <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
             <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
-            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"              if="$(eval not downsample_resolution>0.0 and not enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/downsampled"  if="$(eval downsample_resolution>0.0 and not enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/nan_filtered" if="$(eval enable_nan_removal and not enable_outlier_removal)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)/inliers"      if="$(eval enable_outlier_removal)"/>
             <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
             <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
             <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
@@ -105,7 +173,7 @@
             <arg name="preanalysis/pfActive"                            value="false"/>
             <arg name="preanalysis/fsActive"                            value="false"/>
             <arg name="preanalysis/dsMethod"                            value="false"/>
-            <arg name="regiongrowing/enable"                            value="true"/>
+            <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
             <arg name="costmap/curv_gain"                               value="5.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
