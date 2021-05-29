@@ -698,7 +698,13 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
           if (m_enableTraversability)
           {
+<<<<<<< HEAD
             OcTreeT::NodeType* node = m_octree->integrateNodeRough(key, it->intensity);
+=======
+            // if (!isnan(it->intensity))
+              m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
+              // m_octree->integrateNodeRough(key, it->intensity);
+>>>>>>> ce69f55a3c93ee31def566f14685961d3c33ec08
           }
 #endif
         }
@@ -749,14 +755,21 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
   // now mark all occupied cells:
   for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
     point3d point = m_octree->keyToCoord(*it);
-    m_octree->updateNode(*it, true);
+    OcTreeT::NodeType *origNewNode = m_octree->updateNode(*it, true);
     OcTreeTStamped::NodeType *newNode = m_merged_tree->updateNode(point, true);
     newNode->setTimestamp(1);
 #ifdef WITH_TRAVERSABILITY
     if (m_enableTraversability)
     {
       // if (!isnan(m_octree->getNodeRough(*it)))
+<<<<<<< HEAD
         m_merged_tree->setNodeRough(*it,m_octree->getNodeRough(*it));
+=======
+        // m_merged_tree->setNodeRough(point.x(),point.y(),point.z(), m_octree->getNodeRough(*it));
+        newNode->setRough(origNewNode->getRough());
+        // m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
+        // m_octree->integrateNodeRough(*it, m_octree->getNodeRough(*it));
+>>>>>>> ce69f55a3c93ee31def566f14685961d3c33ec08
     }
 #endif
     if (m_buildCameraMap && pointInsideView(point)) {
