@@ -698,8 +698,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
           if (m_enableTraversability)
           {
-            // if (!isnan(it->intensity))
-              m_octree->averageNodeRough(it->x, it->y, it->z, it->intensity);
+            OcTreeT::NodeType* node = m_octree->integrateNodeRough(key, it->intensity);
           }
 #endif
         }
@@ -757,7 +756,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
     if (m_enableTraversability)
     {
       // if (!isnan(m_octree->getNodeRough(*it)))
-        m_merged_tree->averageNodeRough(point.x(),point.y(),point.z(),m_octree->getNodeRough(*it));
+        m_merged_tree->setNodeRough(*it,m_octree->getNodeRough(*it));
     }
 #endif
     if (m_buildCameraMap && pointInsideView(point)) {
