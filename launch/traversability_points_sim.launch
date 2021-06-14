@@ -147,7 +147,7 @@
     <rosparam>
         # true: no points in the box, false: no points outside the box
         negative: true
-        min_x: -1.0
+        min_x: -1.5
         max_x: 0.2
         min_y: -0.5
         max_y: 0.5
