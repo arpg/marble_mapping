@@ -698,7 +698,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 #ifdef WITH_TRAVERSABILITY
           if (m_enableTraversability)
           {
-            OcTreeT::NodeType* node = m_octree->integrateNodeRough(key, it->intensity);
+            OcTreeT::NodeType* node = m_octree->integrateNodeRough(point, it->intensity);
           }
 #endif
         }
@@ -756,7 +756,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
     if (m_enableTraversability)
     {
       // if (!isnan(m_octree->getNodeRough(*it)))
-        m_merged_tree->setNodeRough(*it,m_octree->getNodeRough(*it));
+        m_merged_tree->setNodeRough(point, m_octree->getNodeRough(point));
     }
 #endif
     if (m_buildCameraMap && pointInsideView(point)) {
@@ -784,7 +784,7 @@ int MarbleMapping::updateDiffTree(OcTreeMT* tree, PCLPointCloud& pclDiffCloud) {
 #ifdef WITH_TRAVERSABILITY
       if (m_enableTraversability)
       {
-        m_diff_tree->setNodeRough(point.x(),point.y(),point.z(), tree->getNodeRough(point.x(),point.y(),point.z()));
+        m_diff_tree->setNodeRough(point, tree->getNodeRough(point));
       }
 #endif
       num_nodes++;
@@ -833,16 +833,16 @@ void MarbleMapping::updateDiff(const ros::TimerEvent& event) {
       octomap_msgs::Octomap msg;
 
       // octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
-      if (m_enableTraversabilitySharing)
-      {
-        ROS_INFO("updating diff with full map");
-        octomap_msgs::fullMapToMsg(*m_diff_tree, msg); // inefficient hack to enable sharing of trav info
-        // octomap_msgs::binaryMapToMsg(*m_diff_tree, msg); // converts RoughOcTree to binary
-      }
-      else
-      {
-        octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
-      }
+      // if (m_enableTraversabilitySharing)
+      // {
+      //   ROS_INFO("updating diff with full map");
+        // octomap_msgs::fullMapToMsg(*m_diff_tree, msg); // inefficient hack to enable sharing of trav info
+        octomap_msgs::binaryMapToMsg(*m_diff_tree, msg); // converts RoughOcTree to binary
+      // }
+      // else
+      // {
+        // octomap_msgs::binaryMapToMsg(*m_diff_tree, msg);
+      // }
       msg.header.frame_id = m_worldFrameId;
       msg.header.stamp = ros::Time().now();
       msg.header.seq = num_diffs - 1;
@@ -988,7 +988,7 @@ void MarbleMapping::mergeNeighbors() {
                 if (m_enableTraversability)
                 {
                   // if(!isnan(it->getRough()))
-                    m_merged_tree->averageNodeRough(nodeKey, it->getRough());
+                    m_merged_tree->integrateNodeRough(nodeKey, it->getRough());
                 }
 #endif
               }
@@ -1337,9 +1337,14 @@ void MarbleMapping::publishBinaryOctoMap(const ros::Time& rostime) const{
   map.header.stamp = rostime;
 
   boost::mutex::scoped_lock lock(m_mtx);
-  if (octomap_msgs::binaryMapToMsg(*m_octree, map))
+  if (octomap_msgs::binaryMapToMsg(*m_octree, map)) {
+// #ifdef WITH_TRAVERSABILITY
+//     map.id = "RoughOcTree";
+// #else
+//     map.id = "OcTree";
+// #endif
     m_binaryMapPub.publish(map);
-  else
+  } else
     ROS_ERROR("Error serializing OctoMap");
 }
 
@@ -1350,9 +1355,15 @@ void MarbleMapping::publishFullOctoMap(const ros::Time& rostime) const{
   map.header.stamp = rostime;
 
   boost::mutex::scoped_lock lock(m_mtx);
-  if (octomap_msgs::fullMapToMsg(*m_octree, map))
+  if (octomap_msgs::fullMapToMsg(*m_octree, map)) {
+// #ifdef WITH_TRAVERSABILITY
+//     map.id = "RoughOcTree";
+// #else
+//     map.id = "OcTree";
+// #endif
+ROS_INFO("Publishing full octomap size %d", m_octree->getNumLeafNodes());
     m_fullMapPub.publish(map);
-  else
+  } else
     ROS_ERROR("Error serializing OctoMap");
 }
 
@@ -1364,7 +1375,11 @@ void MarbleMapping::publishMergedBinaryOctoMap(const ros::Time& rostime) const{
 
   boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::binaryMapToMsg(*m_merged_tree, map)) {
-    // map.id = "OcTree";
+#ifdef WITH_TRAVERSABILITY
+    map.id = "RoughOcTree";
+#else
+    map.id = "OcTree";
+#endif
     m_mergedBinaryMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");
@@ -1378,7 +1393,11 @@ void MarbleMapping::publishMergedFullOctoMap(const ros::Time& rostime) const{
 
   boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::fullMapToMsg(*m_merged_tree, map)) {
-    // map.id = "OcTree";
+#ifdef WITH_TRAVERSABILITY
+    map.id = "RoughOcTree";
+#else
+    map.id = "OcTree";
+#endif
     m_mergedFullMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");
@@ -1392,7 +1411,11 @@ void MarbleMapping::publishCameraOctoMap(const ros::Time& rostime) const{
 
   boost::mutex::scoped_lock lock(m_mtx);
   if (octomap_msgs::binaryMapToMsg(*m_camera_tree, map)) {
-    // map.id = "OcTree";
+// #ifdef WITH_TRAVERSABILITY
+//     map.id = "RoughOcTree";
+// #else
+//     map.id = "OcTree";
+// #endif
     m_cameraMapPub.publish(map);
   } else
     ROS_ERROR("Error serializing OctoMap");
