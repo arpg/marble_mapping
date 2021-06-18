@@ -53,7 +53,7 @@
             <arg name="preanalysis/dsMethod"                            value="false"/>
             <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
-            <arg name="costmap/curv_gain"                               value="5.0"/>
+            <arg name="costmap/curv_gain"                               value="2.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
             <arg name="costmap/max_saturation_cost"                     value="0.5"/>
             <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
@@ -65,19 +65,49 @@
         <arg name="cloud_topic"             default="points"/>
         <arg name="downsample_resolution"   default="0.05"/>
         <arg name="enable_nan_removal"      default="false"/>
-        <arg name="enable_outlier_removal"  default="false"/>
-        <node pkg="nodelet" type="nodelet" name="voxel_grid" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+        <arg name="enable_outlier_removal"  default="true"/>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_x" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
             <remap from="~input" to="$(arg cloud_topic)"/>
-            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled/x"/>
             <param name="leaf_size"     value="$(arg downsample_resolution)"/>
             <rosparam>
-                <!-- filter_field_name:     l          -->
-                filter_limit_max:      1000     
-                filter_limit_min:      -1000         
+                filter_field_name:     x
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
                 <!-- filter_limit_negative: l              -->
                 <!-- input_frame:           l      -->
                 <!-- keep_organized:        l      -->
-                min_points_per_voxel:  2             
+                min_points_per_voxel:  4
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_y" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)/downsampled/x"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled/y"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                filter_field_name:     y
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  4
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_z" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)/downsampled/y"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                filter_field_name:     z
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  4
                 <!-- output_frame:          l      -->
             </rosparam>
         </node>
@@ -114,7 +144,7 @@
             <arg name="preanalysis/dsMethod"                            value="false"/>
             <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
-            <arg name="costmap/curv_gain"                               value="5.0"/>
+            <arg name="costmap/curv_gain"                               value="2.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
             <arg name="costmap/max_saturation_cost"                     value="1.0"/>
             <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
@@ -127,18 +157,48 @@
         <arg name="downsample_resolution"   default="0.05"/>
         <arg name="enable_nan_removal"      default="false"/>
         <arg name="enable_outlier_removal"  default="false"/>
-        <node pkg="nodelet" type="nodelet" name="voxel_grid" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_x" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
             <remap from="~input" to="$(arg cloud_topic)"/>
-            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled/x"/>
             <param name="leaf_size"     value="$(arg downsample_resolution)"/>
             <rosparam>
-                <!-- filter_field_name:     l          -->
-                filter_limit_max:      1000     
-                filter_limit_min:      -1000         
+                filter_field_name:     x
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
                 <!-- filter_limit_negative: l              -->
                 <!-- input_frame:           l      -->
                 <!-- keep_organized:        l      -->
-                min_points_per_voxel:  2             
+                min_points_per_voxel:  4
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_y" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)/downsampled/x"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled/y"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                filter_field_name:     y
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  4
+                <!-- output_frame:          l      -->
+            </rosparam>
+        </node>
+        <node pkg="nodelet" type="nodelet" name="voxel_grid_z" args="standalone pcl/VoxelGrid" if="$(eval downsample_resolution>0.0)" output="screen" respawn="true">
+            <remap from="~input" to="$(arg cloud_topic)/downsampled/y"/>
+            <remap from="~output" to="$(arg cloud_topic)/downsampled"/>
+            <param name="leaf_size"     value="$(arg downsample_resolution)"/>
+            <rosparam>
+                filter_field_name:     z
+                filter_limit_max:      1000
+                filter_limit_min:      -1000
+                <!-- filter_limit_negative: l              -->
+                <!-- input_frame:           l      -->
+                <!-- keep_organized:        l      -->
+                min_points_per_voxel:  4
                 <!-- output_frame:          l      -->
             </rosparam>
         </node>
@@ -175,7 +235,7 @@
             <arg name="preanalysis/dsMethod"                            value="false"/>
             <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
-            <arg name="costmap/curv_gain"                               value="5.0"/>
+            <arg name="costmap/curv_gain"                               value="2.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
             <arg name="costmap/max_saturation_cost"                     value="1.0"/>
             <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>

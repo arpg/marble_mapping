@@ -120,6 +120,9 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
 
   m_nh_private.param("enable_traversability", m_enableTraversability, false);
   m_nh_private.param("enable_traversability_sharing", m_enableTraversabilitySharing, false);
+  m_nh_private.param("trav_marker_density", m_travMarkerDensity, 0);
+
+  m_publishTravMarkerArray = (m_travMarkerDensity>0);
 
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
@@ -277,6 +280,8 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
     m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("merged_map_pc", 1, m_latchedTopics);
   if (m_publishPointCloudDiff)
     m_pointCloudDiffPub = m_nh.advertise<sensor_msgs::PointCloud2>("pc_diff", 1, m_latchedTopics);
+  if (m_publishTravMarkerArray)
+    m_travMarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("trav_markers", 1, m_latchedTopics);
 
   if (m_publishCameraView) {
     m_cameraViewPub = m_nh.advertise<visualization_msgs::Marker>("camera_view", 1, m_latchedTopics);
@@ -347,7 +352,7 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   pub_timer = m_nh.createTimer(ops_pub);
 
   // Timer to publish the optional maps, on a separate thread
-  if (m_publishMarkerArray || m_publishFreeSpace || m_publishPointCloud) {
+  if (m_publishMarkerArray || m_publishFreeSpace || m_publishPointCloud || m_publishTravMarkerArray) {
     ros::TimerOptions ops;
     ops.period = ros::Duration(pub_opt_duration);
     ops.callback = boost::bind(&MarbleMapping::publishOptionalMaps, this, _1);
@@ -1046,16 +1051,17 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
   bool publishFreeMarkerArray = m_publishFreeSpace && (m_fmarkerPub.getNumSubscribers() > 0);
   bool publishMarkerArray = m_publishMarkerArray && (m_markerPub.getNumSubscribers() > 0);
   bool publishPointCloud = m_publishPointCloud && (m_pointCloudPub.getNumSubscribers() > 0);
+  bool publishTravMarkerArray = m_publishTravMarkerArray && (m_travMarkerPub.getNumSubscribers() > 0);
 
   // init markers:
-  visualization_msgs::MarkerArray freeNodesVis, occupiedNodesVis;
+  visualization_msgs::MarkerArray freeNodesVis, occupiedNodesVis, travMarkers;
 
   // init pointcloud:
   pcl::PointCloud<PCLPoint> pclCloud;
 
   boost::mutex::scoped_lock lock(m_mtx);
   // Only traverse the tree if we're publishing a marker array or point cloud
-  if (publishMarkerArray || publishFreeMarkerArray || publishPointCloud) {
+  if (publishMarkerArray || publishFreeMarkerArray || publishPointCloud || publishTravMarkerArray) {
     // each array stores all cubes of a different size, one for each depth level:
     freeNodesVis.markers.resize(m_treeDepth+1);
     occupiedNodesVis.markers.resize(m_treeDepth+1);
@@ -1136,6 +1142,27 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             pclCloud.push_back(_point);
           }
 
+          if (publishTravMarkerArray && ( (int)round(x/size)%m_travMarkerDensity==0 && (int)round(y/size)%m_travMarkerDensity==0 ) ) {
+#ifdef WITH_TRAVERSABILITY
+            char text_buf[50];
+            sprintf(text_buf, "%0.2f", it->getRough());
+            std::string text_str = text_buf;
+            visualization_msgs::Marker marker;
+            marker.pose.position.x = x;
+            marker.pose.position.y = y;
+            marker.pose.position.z = z+size;
+            marker.pose.orientation.x = 0.0;
+            marker.pose.orientation.y = 0.0;
+            marker.pose.orientation.z = 0.0;
+            marker.pose.orientation.w = 1.0;
+            marker.text = text_buf;
+            // if (fabs(marker.pose.position.x)<1000.0 && fabs(marker.pose.position.y)<1000.0 && fabs(marker.pose.position.z)<1000.0)
+            // if (!isnan(marker.pose.position.x) && !isnan(marker.pose.position.y) && !isnan(marker.pose.position.z))
+            travMarkers.markers.push_back(marker);
+#else
+            ROS_ERROR("Cannot publish trav marker array. Not built with traversability enabled.");
+#endif
+          }
         }
       } else { // node not occupied => mark as free in 2D map if unknown so far
         if (publishFreeMarkerArray) {
@@ -1218,6 +1245,32 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
     cloud.header.frame_id = m_worldFrameId;
     cloud.header.stamp = rostime;
     m_pointCloudPub.publish(cloud);
+  }
+
+  if (publishTravMarkerArray){
+    for (unsigned i= 0; i < travMarkers.markers.size(); ++i){
+      double size = m_merged_tree->getNodeSize(i);
+
+      travMarkers.markers[i].header.frame_id = m_worldFrameId;
+      travMarkers.markers[i].header.stamp = rostime;
+      travMarkers.markers[i].ns = "map";
+      travMarkers.markers[i].id = i;
+      travMarkers.markers[i].type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      travMarkers.markers[i].scale.z = 0.1;
+      travMarkers.markers[i].color.r = 1.0;
+      travMarkers.markers[i].color.g = 1.0;
+      travMarkers.markers[i].color.b = 1.0;
+      travMarkers.markers[i].color.a = 1.0;
+
+      if (travMarkers.markers[i].text != "")
+        travMarkers.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        travMarkers.markers[i].action = visualization_msgs::Marker::DELETE;
+
+      // ROS_INFO("Setting text at %f %f %f %s", travMarkers.markers[i].pose.position.x, travMarkers.markers[i].pose.position.y, travMarkers.markers[i].pose.position.z, travMarkers.markers[i].text.c_str());
+    }
+
+    m_travMarkerPub.publish(travMarkers);
   }
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();

@@ -158,7 +158,7 @@ protected:
 
   ros::NodeHandle m_nh;
   ros::NodeHandle m_nh_private;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_mergedBinaryMapPub, m_mergedFullMapPub, m_diffMapPub, m_diffsMapPub, m_cameraMapPub, m_cameraViewPub, m_pointCloudPub, m_pointCloudDiffPub, m_fmarkerPub;
+  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_mergedBinaryMapPub, m_mergedFullMapPub, m_diffMapPub, m_diffsMapPub, m_cameraMapPub, m_cameraViewPub, m_pointCloudPub, m_pointCloudDiffPub, m_fmarkerPub, m_travMarkerPub;
   ros::Subscriber m_neighborsSub;
   ros::Subscriber m_octomapSub;
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
@@ -206,6 +206,7 @@ protected:
   bool m_publishCameraMap;
   bool m_publishCameraView;
   bool m_publishNeighborMaps;
+  bool m_publishTravMarkerArray;
 
   bool m_removeCeiling;
   int m_removeCeilingDepth;
@@ -269,6 +270,7 @@ protected:
 
   // traversability info variables
   bool m_enableTraversability, m_enableTraversabilitySharing;
+  int m_travMarkerDensity;
 };
 }
 
