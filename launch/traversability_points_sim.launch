@@ -8,33 +8,21 @@
 
 
     <arg name="vehicle_name"                    default="X1"/>
-    <!-- <arg name="enable_rviz"                     default="true"/> -->
 
     <arg name="enable_debug"                    default="false"/>
-    <!-- <arg name="enable_ctm"                      default="true"/> -->
-    <!-- <arg name="enable_octomap"                  default="true"/> -->
-    <!-- <arg name="enable_marble_mapping"           default="false"/> -->
     <arg name="enable_inner_crop"               default="true"/>
     <arg name="enable_outer_crop"               default="false"/>
-    <!-- <arg name="enable_picoflexx_points"         default="true" /> -->
     <arg name="enable_voxfilter"                default="false" />
-    <!-- <arg name="enable_planning"                 default="false"/> -->
 
     <arg name="fixed_frame_id"                  default="$(arg vehicle_name)/map"/>
-    <!-- <arg name="child_frame_id"                  default="$(arg vehicle_name)/base_link"/> -->
     <arg name="child_frame_id"                  default="$(arg vehicle_name)/horiz_ouster_link"/>
-    <!-- <arg name="input_cloud_topic"               default="octomap_in"/> -->
     <arg name="output_cloud_topic"              default="octomap_out"/>
     <arg name="octomap_resolution"              default="0.2"/>
     <arg name="range"                           default="5.0"/>
-    <!-- <arg name="trav_marker_density"             default="2"/> -->
-    <!-- <arg name="trav_marker_lower_thresh"        default="0.5"/> -->
-    <!-- <arg name="trav_marker_upper_thresh"        default="1.0"/> -->
-
-    <!-- THROTTLE FREQUENCY (0 to disable) -->
     <arg name="throttle"                        default="0"/>
 
-    <group >
+    <!-- Main Lidar -->
+    <group>
         <arg name="cloud_topic"         default="points"/>
         <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
@@ -61,6 +49,7 @@
         </include>
     </group>
 
+    <!-- Single realsense for older Husky's -->
     <group ns="front_down_rgbd_camera/depth">
         <arg name="cloud_topic"         default="points"/>
         <!-- CURVY TERRAIN MAPPER -->
@@ -88,10 +77,12 @@
         </include>
     </group>
 
-    <!-- <group ns="front_facing_rgbd_camera/depth">
+    <!-- Dual picoflexxes for new Husky -->
+    <group ns="tof_left">
         <arg name="cloud_topic"         default="points"/>
+        <!-- CURVY TERRAIN MAPPER -->
         <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
-            <arg name="fixed_frame_id"                                  value="$(arg child_frame_id)"/>
+            <arg name="fixed_frame_id"                                  value="$(arg fixed_frame_id)"/>
             <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
             <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
             <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
@@ -99,35 +90,55 @@
             <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
             <arg name="preanalysis/dsFlag"                              value="true"/>
             <arg name="preanalysis/dsResolution"                        value="0.05"/>
-            <arg name="preanalysis/gpFlag"                              value="true"/>
+            <arg name="preanalysis/gpFlag"                              value="false"/>
             <arg name="preanalysis/gpAngle"                             value="5.0"/>
             <arg name="preanalysis/pfActive"                            value="false"/>
             <arg name="preanalysis/fsActive"                            value="false"/>
             <arg name="preanalysis/dsMethod"                            value="false"/>
-            <arg name="regiongrowing/enable"                            value="true"/>
+            <arg name="regiongrowing/enable"                            value="false"/>
             <arg name="costmap/normal_gain"                             value="20.0"/>
-            <arg name="costmap/curv_gain"                               value="5.0"/>
+            <arg name="costmap/curv_gain"                               value="2.0"/>
             <arg name="costmap/min_saturation_cost"                     value="0.0"/>
-            <arg name="costmap/max_saturation_cost"                     value="1.0"/>
+            <arg name="costmap/max_saturation_cost"                     value="0.5"/>
             <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
             <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
         </include>
-    </group> -->
+    </group>
 
-    <!-- <include file="$(find pcl_ros_toolbox)/launch/approx_time_concatenate_server.launch">
-        <arg name="input0_topic"      value="points/cost_norm_cloud" />
-        <arg name="input1_topic"      value="front_down_rgbd_camera/depth/points/cost_norm_cloud" />
-        <arg name="output_topic"      value="$(arg output_cloud_topic)/concatenated" />
-        <arg name="output_resolution" value="$(arg octomap_resolution)"/>
-        <arg name="common_frame_id"   value="$(arg child_frame_id)"/>
-        <arg name="min_rate"          value="6"/>
-    </include> -->
-    <!-- <node pkg="topic_tools" type="relay" name="concatenated_relay" args="points/cost_norm_cloud $(arg output_cloud_topic)/concatenated" unless="$(arg enable_picoflexx_points)" respawn="true"/> -->
+    <group ns="tof_right">
+        <arg name="cloud_topic"         default="points"/>
+        <!-- CURVY TERRAIN MAPPER -->
+        <include file="$(find curvy_terrain_mapper)/launch/curvy_terrain_mapper.launch">
+            <arg name="fixed_frame_id"                                  value="$(arg fixed_frame_id)"/>
+            <arg name="input_cloud_topic"                               value="$(arg cloud_topic)"/>
+            <arg name="main_cloud_topic"                                value="$(arg cloud_topic)/main_cloud"/>
+            <arg name="cost_cloud_topic"                                value="$(arg cloud_topic)/cost_cloud"/>
+            <arg name="cost_norm_cloud_topic"                           value="$(arg cloud_topic)/cost_norm_cloud"/>
+            <arg name="enable_debug"                                    value="$(arg enable_debug)"/>
+            <arg name="preanalysis/dsFlag"                              value="true"/>
+            <arg name="preanalysis/dsResolution"                        value="0.05"/>
+            <arg name="preanalysis/gpFlag"                              value="false"/>
+            <arg name="preanalysis/gpAngle"                             value="5.0"/>
+            <arg name="preanalysis/pfActive"                            value="false"/>
+            <arg name="preanalysis/fsActive"                            value="false"/>
+            <arg name="preanalysis/dsMethod"                            value="false"/>
+            <arg name="regiongrowing/enable"                            value="false"/>
+            <arg name="costmap/normal_gain"                             value="20.0"/>
+            <arg name="costmap/curv_gain"                               value="2.0"/>
+            <arg name="costmap/min_saturation_cost"                     value="0.0"/>
+            <arg name="costmap/max_saturation_cost"                     value="0.5"/>
+            <arg name="costmap/set_min_saturation_cost_to_min_cost"     value="false"/>
+            <arg name="costmap/set_max_saturation_cost_to_max_cost"     value="false"/>
+        </include>
+    </group>
+
+    <!-- Mix all of the point clouds -->
     <node pkg="topic_tools" type="relay" name="points_relay" args="points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
     <node pkg="topic_tools" type="relay" name="front_down_points_relay" args="front_down_rgbd_camera/depth/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="tof_left_relay" args="tof_left/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
+    <node pkg="topic_tools" type="relay" name="tof_right_relay" args="tof_right/points/cost_norm_cloud $(arg output_cloud_topic)/mixed" respawn="true"/>
 
     <node pkg="nodelet" type="nodelet" name="voxel_grid_filter_nodelet" args="standalone pcl/VoxelGrid pcl_manager" output="log" if="$(arg enable_voxfilter)" respawn="true">
-        <!-- <remap from="~input"                  to="mixed_cloud" /> -->
         <remap from="~input"                  to="$(arg output_cloud_topic)/mixed" />
         <remap from="~output"                 to="$(arg output_cloud_topic)/voxfiltered" />
         <param name="filter_field_name"       value="z"/>

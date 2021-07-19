@@ -14,6 +14,10 @@
   <arg name="cloud_in" default="points" />
   <!-- Maximum range to integrate (speedup!) -->
   <arg name="max_range" default="7.0" />
+  <!-- Enable traversability info to be integrated into occupied cells from intensity channel of input pointcloud -->
+  <arg name="enable_traversability" default="true" />
+  <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
+  <arg name="enable_traversability_sharing" default="false" />
   <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
   <arg name="compress_maps" default="true" />
   <!-- Number of threads to use. Setting '0' or a value greater than maximum value
@@ -43,6 +47,8 @@
   <arg name="publish_point_cloud_diff" default="true" />
   <!-- Whether to publish neighbor maps to neighbors/VEHICLE/map -->
   <arg name="publish_neighbor_maps" default="true" />
+  <!-- Which color mode to use for map publishing.  Options are 1 (agent), 2 (rough), 3 (z-axis) -->
+  <arg name="display_color" default="1" />
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
   <arg name="remove_ceiling" default="true" />
   <arg name="remove_ceiling_depth" default="4" />
@@ -69,6 +75,8 @@
     <param name="multiagent" value="$(arg multiagent)" />
     <param name="input" value="$(arg input)" />
     <param name="sensor_model/max_range" value="$(arg max_range)" />
+    <param name="enable_traversability" value="$(arg enable_traversability)" />
+    <param name="enable_traversability_sharing" value="$(arg enable_traversability_sharing)" />
     <param name="compress_maps" value="$(arg compress_maps)" />
     <param name="num_threads" value="$(arg num_threads)" />
     <param name="downsample_size" value="$(arg downsample_size)" />
@@ -90,6 +98,7 @@
     <param name="publish_point_cloud" value="$(arg publish_point_cloud)" />
     <param name="publish_point_cloud_diff" value="$(arg publish_point_cloud_diff)" />
     <param name="publish_neighbor_maps" value="$(arg publish_neighbor_maps)" />
+    <param name="display_color" value="$(arg display_color)" />
 
     <param name="remove_ceiling" value="$(arg remove_ceiling)" />
     <param name="remove_ceiling_depth" value="$(arg remove_ceiling_depth)" />

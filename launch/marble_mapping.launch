@@ -14,12 +14,20 @@
   <arg name="input" default="1" />
   <!-- Data source to integrate (PointCloud2) -->
   <arg name="cloud_in" default="points" />
-  <!-- Maximum range to integrate (speedup!) -->
+  <!-- Minimum / Maximum range to integrate (speedup!) -->
+  <arg name="min_range" default="0.0" />
   <arg name="max_range" default="7.0" />
+  <!-- Enable traversability info to be integrated into occupied cells from intensity channel of input pointcloud -->
+  <arg name="enable_traversability" default="false" />
+  <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
+  <arg name="enable_traversability_sharing" default="false" />
+  <arg name="trav_marker_density"             default="0"/>
 
   <!-- Performance Tuning Options-->
   <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
   <arg name="compress_maps" default="false" />
+  <!-- Whether to remove outliers in the PCL.  Big performance hit! -->
+  <arg name="enable_radius_outlier_removal" default="false" />
   <!-- Number of threads to use for PCL processing. Setting '0' or a value greater than
        maximum value will use the OMP_NUM_THREADS variable or maximum CPU threads if not set.
        At low resolutions recommend '1' for best performance.
@@ -51,10 +59,12 @@
   <!-- Whether to publish the marker arrays and point cloud -->
   <arg name="publish_marker_array" default="true" />
   <arg name="publish_free_space" default="false" />
-  <arg name="publish_point_cloud" default="false" />
+  <arg name="publish_point_cloud" default="true" />
   <arg name="publish_point_cloud_diff" default="false" />
   <!-- Whether to publish neighbor maps to neighbors/VEHICLE/map -->
   <arg name="publish_neighbor_maps" default="false" />
+  <!-- Which color mode to use for map publishing.  Options are 1 (agent), 2 (rough), 3 (z-axis) -->
+  <arg name="display_color" default="1" />
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
   <arg name="remove_ceiling" default="false" />
   <arg name="remove_ceiling_depth" default="4" />
@@ -75,12 +85,6 @@
   <arg name="sensor_model/min" default=".12" />
   <arg name="sensor_model/max" default=".97" />
 
-  <!-- Enable traversability info to be integrated into occupied cells from intensity channel of input pointcloud -->
-  <arg name="enable_traversability"           default="false" />
-  <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
-  <arg name="enable_traversability_sharing"   default="false" />
-  <arg name="trav_marker_density"             default="1"/>
-
   <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" output="screen">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
@@ -88,7 +92,11 @@
     <param name="multiagent" value="$(arg multiagent)" />
     <param name="input" value="$(arg input)" />
     <param name="sensor_model/max_range" value="$(arg max_range)" />
+    <param name="sensor_model/min_range" value="$(arg min_range)" />
+    <param name="enable_traversability" value="$(arg enable_traversability)" />
+    <param name="enable_traversability_sharing" value="$(arg enable_traversability_sharing)" />
     <param name="compress_maps" value="$(arg compress_maps)" />
+    <param name="enable_radius_outlier_removal" value="$(arg enable_radius_outlier_removal)" />
     <param name="num_threads" value="$(arg num_threads)" />
     <param name="downsample_size" value="$(arg downsample_size)" />
     <param name="pcl_time_limit" value="$(arg pcl_time_limit)" />
@@ -110,6 +118,7 @@
     <param name="publish_point_cloud" value="$(arg publish_point_cloud)" />
     <param name="publish_point_cloud_diff" value="$(arg publish_point_cloud_diff)" />
     <param name="publish_neighbor_maps" value="$(arg publish_neighbor_maps)" />
+    <param name="display_color" value="$(arg display_color)" />
 
     <param name="remove_ceiling" value="$(arg remove_ceiling)" />
     <param name="remove_ceiling_depth" value="$(arg remove_ceiling_depth)" />

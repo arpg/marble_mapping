@@ -55,6 +55,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/radius_outlier_removal.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <tf/transform_listener.h>
@@ -62,20 +63,12 @@
 #include <message_filters/subscriber.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap_msgs/GetOctomap.h>
-#ifndef WITH_TRAVERSABILITY
-#include <octomap_msgs/conversions.h>
-#endif
 
 #include <octomap_ros/conversions.h>
 #include <octomap/octomap.h>
-#include <octomap/OcTreeStamped.h>
 #include <octomap/OcTreeKey.h>
-
-#ifdef WITH_TRAVERSABILITY
 #include <rough_octomap/RoughOcTree.h>
 #include <rough_octomap/conversions.h>
-#endif
-
 #include <omp.h>
 
 #include "marble_mapping/OctomapArray.h"
@@ -85,17 +78,10 @@ namespace marble_mapping {
 class MarbleMapping {
 
 public:
-#ifdef WITH_TRAVERSABILITY
   typedef pcl::PointXYZI PCLPoint;
-  typedef octomap::RoughOcTree OcTreeT;
-  typedef octomap::RoughOcTreeStamped OcTreeTStamped;
-#else
-  typedef pcl::PointXYZ PCLPoint;
-  typedef octomap::OcTree OcTreeT;
-  typedef octomap::OcTreeStamped OcTreeTStamped;
-#endif
   typedef pcl::PointCloud<PCLPoint> PCLPointCloud;
-
+  typedef octomap::OcTree OcTreeT;
+  typedef octomap::RoughOcTree RoughOcTreeT;
   typedef octomap_msgs::GetOctomap OctomapSrv;
   ros::CallbackQueue pub_queue;
 
@@ -113,8 +99,8 @@ public:
 
 protected:
   void reconfigureCallback(marble_mapping::MarbleMappingConfig& config, uint32_t level);
-  void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
-  void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
+  void publishBinaryOctoMap(RoughOcTreeT& self_tree, const ros::Time& rostime = ros::Time::now()) const;
+  void publishFullOctoMap(RoughOcTreeT& self_tree, const ros::Time& rostime = ros::Time::now()) const;
   void publishMergedBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishMergedFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishCameraOctoMap(const ros::Time& rostime = ros::Time::now()) const;
@@ -172,20 +158,21 @@ protected:
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<MarbleMappingConfig> m_reconfigureServer;
 
-  OcTreeT* m_octree;
-  OcTreeT* m_diff_tree;
+  RoughOcTreeT* m_octree;
+  RoughOcTreeT* m_diff_tree;
   OcTreeT* m_camera_tree;
-  OcTreeTStamped* m_merged_tree;
+  RoughOcTreeT* m_merged_tree;
   std::vector<octomap::KeyRay> keyrays;
 
   marble_mapping::OctomapArray mapdiffs;
   marble_mapping::OctomapNeighbors neighbors;
-  std::map<std::string, OcTreeT*> neighbor_maps;
+  std::map<std::string, RoughOcTreeT*> neighbor_maps;
   std::map<std::string, bool> neighbor_updated;
   std::map<std::string, ros::Publisher> neighbor_pubs;
 
   int m_input;
   double m_maxRange;
+  double m_minRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
   std_msgs::ColorRGBA m_color;
@@ -207,6 +194,8 @@ protected:
   bool m_publishCameraView;
   bool m_publishNeighborMaps;
   bool m_publishTravMarkerArray;
+  bool m_adjustAgent;
+  int m_displayColor;
 
   bool m_removeCeiling;
   int m_removeCeilingDepth;
@@ -216,14 +205,18 @@ protected:
   unsigned m_treeDepth;
   unsigned m_maxTreeDepth;
 
+  bool m_enableTraversability;
+  bool m_enableTraversabilitySharing;
+  int m_travMarkerDensity;
+
   // Diff parameters
   int diff_threshold;
   double diff_duration;
   unsigned num_diffs;
-  unsigned next_idx;
   bool m_diffMerged;
+  char next_idx;
   std::map<std::string, std::vector<int>> seqs;
-  std::map<std::string, int> idx;
+  std::map<std::string, char> idx;
 
   double m_pointcloudMinX;
   double m_pointcloudMaxX;
@@ -236,6 +229,7 @@ protected:
 
   // Performance Tuning
   bool m_compressMaps;
+  bool m_enable_radius_outlier_removal;
   double m_downsampleSize;
   double m_pclTimeLimit;
   int m_numThreads;
@@ -267,10 +261,6 @@ protected:
   std::string m_diff_pre;
   std::string m_diff_post;
   std::map<std::string, ros::Subscriber> m_diffSubs;
-
-  // traversability info variables
-  bool m_enableTraversability, m_enableTraversabilitySharing;
-  int m_travMarkerDensity;
 };
 }
 

@@ -20,6 +20,7 @@ set(PACKAGE_DEPENDENCIES
   dynamic_reconfigure
   nodelet
   message_generation
+  rough_octomap
 )
 IF(WITH_TRAVERSABILITY)
   set(PACKAGE_DEPENDENCIES ${PACKAGE_DEPENDENCIES} "rough_octomap")
