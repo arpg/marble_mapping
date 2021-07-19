@@ -302,6 +302,9 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
     m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
     m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
     m_tfPointCloudSub->registerCallback(boost::bind(&MarbleMapping::insertCloudCallback, this, _1));
+    m_stairPointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "stair_cloud_in", 5);
+    m_stairTfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_stairPointCloudSub, m_tfListener, m_worldFrameId, 5);
+    m_stairTfPointCloudSub->registerCallback(boost::bind(&MarbleMapping::insertStairCloudCallback, this, _1));
     // Services
     m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &MarbleMapping::octomapBinarySrv, this);
     m_octomapFullService = m_nh.advertiseService("octomap_full", &MarbleMapping::octomapFullSrv, this);
@@ -751,6 +754,169 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
       m_camera_tree->updateNode(point, true);
     }
   }
+}
+
+void MarbleMapping::insertStairCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
+  //
+  // ground filtering in base frame
+  //
+  PCLPointCloud pc; // input cloud for filtering and ground-detection
+  pcl::fromROSMsg(*cloud, pc);
+
+  if (m_downsampleSize > 0.0) {
+    pcl::VoxelGrid<PCLPoint> voxel_filter;
+    voxel_filter.setInputCloud (pc.makeShared());
+    voxel_filter.setFilterFieldName("x");
+    voxel_filter.setLeafSize (m_downsampleSize, m_downsampleSize, m_downsampleSize);
+    voxel_filter.filter (pc);
+  }
+
+  tf::StampedTransform sensorToWorldTf;
+  try {
+    m_tfListener.lookupTransform(m_worldFrameId, cloud->header.frame_id, cloud->header.stamp, sensorToWorldTf);
+  } catch(tf::TransformException& ex){
+    ROS_ERROR_STREAM( "Transform error of sensor data: " << ex.what() << ", quitting callback");
+    return;
+  }
+
+  Eigen::Matrix4f sensorToWorld;
+  pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
+
+  // set up filter for height range, also removes NANs:
+  pcl::PassThrough<PCLPoint> pass_x;
+  pass_x.setFilterFieldName("x");
+  pass_x.setFilterLimits(m_pointcloudMinX, m_pointcloudMaxX);
+  pcl::PassThrough<PCLPoint> pass_y;
+  pass_y.setFilterFieldName("y");
+  pass_y.setFilterLimits(m_pointcloudMinY, m_pointcloudMaxY);
+  pcl::PassThrough<PCLPoint> pass_z;
+  pass_z.setFilterFieldName("z");
+  pass_z.setFilterLimits(m_pointcloudMinZ, m_pointcloudMaxZ);
+
+  PCLPointCloud pc_nonground; // everything else
+  
+  {
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // just filter height range:
+    pass_x.setInputCloud(pc.makeShared());
+    pass_x.filter(pc);
+    pass_y.setInputCloud(pc.makeShared());
+    pass_y.filter(pc);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc);
+// #ifdef WITH_TRAVERSABILITY
+//     if (m_enableTraversability)
+//     {
+//       pass_int.setInputCloud(pc.makeShared());
+//       pass_int.filter(pc);
+//     }
+// #endif
+
+    // Remove any spurious points that still exist if we're filtering minrange
+    if (m_enable_radius_outlier_removal) {
+      pcl::RadiusOutlierRemoval<PCLPoint> outrem;
+      // build the filter
+      outrem.setInputCloud(pc.makeShared());
+      outrem.setRadiusSearch(0.2);
+      outrem.setMinNeighborsInRadius (2);
+      // apply filter
+      outrem.filter (pc);
+    }
+
+    pc_nonground = pc;
+    // pc_nonground is empty without ground segmentation
+    pc_nonground.header = pc.header;
+  }
+
+  insertStairScan(sensorToWorldTf, pc_nonground);
+}
+
+void MarbleMapping::insertStairScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& nonground){
+  // Get the rotation matrix and the position, and build camera view if enabled
+  tf::Matrix3x3 rotation = sensorToWorldTf.getBasis();
+  point3d sensorOrigin = pointTfToOctomap(sensorToWorldTf.getOrigin());
+
+  // instead of direct scan insertion, compute update to filter ground:
+  KeySet free_cells, occupied_cells;
+
+  // Profile our processing time
+  ros::WallTime startTime = ros::WallTime::now();
+
+  // all other points: free on ray, occupied on endpoint:
+  #pragma omp parallel for schedule(guided)
+  for (PCLPointCloud::const_iterator it = nonground.begin(); it < nonground.end(); ++it) {
+    point3d point(it->x, it->y, it->z);
+    unsigned threadIdx = omp_get_thread_num();
+    KeyRay* keyRay = &(keyrays.at(threadIdx));
+
+    // minrange / maxrange check
+    if (((m_minRange <= 0.0) || ((point - sensorOrigin).norm() >= m_minRange)) &&
+        ((m_maxRange <= 0.0) || ((point - sensorOrigin).norm() <= m_maxRange))) {
+
+      // free cells
+      // if (m_merged_tree->computeRayKeys(sensorOrigin, point, *keyRay)) {
+      //   #pragma omp critical(free_insert)
+      //   {
+      //     free_cells.insert(keyRay->begin(), keyRay->end());
+      //   }
+      // }
+      // occupied endpoint
+      OcTreeKey key;
+      if (m_merged_tree->coordToKeyChecked(point, key)) {
+        #pragma omp critical(occupied_insert)
+        {
+          // occupied_cells.insert(key);
+          // if (m_merged_tree->getRoughEnabled()) {
+            m_merged_tree->updateNodeStairs(key, true);
+          // }
+        }
+      }
+    } else {// ray longer than maxrange:;
+      // point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
+      // if (m_merged_tree->computeRayKeys(sensorOrigin, new_end, *keyRay)) {
+      //   #pragma omp critical(free_insert)
+      //   {
+      //     free_cells.insert(keyRay->begin(), keyRay->end());
+      //   }
+
+      //   octomap::OcTreeKey endKey;
+      //   if (m_merged_tree->coordToKeyChecked(new_end, endKey)) {
+      //     #pragma omp critical(free_insert)
+      //     {
+      //       // This clears out previously occupied cells that were at the edge of the range
+      //       free_cells.insert(endKey);
+      //     }
+      //   } else {
+      //     ROS_ERROR_STREAM("Could not generate Key for endpoint "<<new_end);
+      //   }
+      // }
+    }
+  }
+
+  // Find the total time for ray casting
+  double total_elapsed = (ros::WallTime::now() - startTime).toSec();
+  ROS_DEBUG("The %zu stair points took %f seconds)", nonground.size(), total_elapsed);
+
+  // boost::mutex::scoped_lock lock(m_mtx);
+  // // mark free cells only if not seen occupied in this cloud
+  // for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
+  //   if (occupied_cells.find(*it) == occupied_cells.end()){
+  //     // Voxels are based on the main octree, so need the actual coordinate for other res trees
+  //     point3d point = m_merged_tree->keyToCoord(*it);
+  //     RoughOcTreeNode *newNode = m_merged_tree->updateNode(*it, false);
+  //     newNode->setAgent(1);
+  //   }
+  // }
+
+  // now mark all occupied cells:
+  // for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
+  //   point3d point = m_merged_tree->keyToCoord(*it);
+  //   // TODO need to check if this is the agent's node, and replace value if not instead of integrate, maybe custom updateNode function
+  //   RoughOcTreeNode *newNode = m_merged_tree->updateNode(*it, true);
+  //   newNode->setAgent(1);
+  // }
 }
 
 template <class OcTreeMT>

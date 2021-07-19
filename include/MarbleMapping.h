@@ -95,6 +95,7 @@ public:
   virtual void octomapCallback(const octomap_msgs::OctomapConstPtr& msg);
   virtual void octomapDiffsCallback(const octomap_msgs::OctomapConstPtr& msg, const std::string owner);
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
+  virtual void insertStairCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
 
 protected:
@@ -117,6 +118,7 @@ protected:
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
   virtual void insertScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertStairScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& nonground);
 
   // Check the changes since last run to publish for sharing to other agents
   template <class OcTreeMT>
@@ -147,8 +149,8 @@ protected:
   ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_mergedBinaryMapPub, m_mergedFullMapPub, m_diffMapPub, m_diffsMapPub, m_cameraMapPub, m_cameraViewPub, m_pointCloudPub, m_pointCloudDiffPub, m_fmarkerPub, m_travMarkerPub;
   ros::Subscriber m_neighborsSub;
   ros::Subscriber m_octomapSub;
-  message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
-  tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
+  message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub, *m_stairPointCloudSub;
+  tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub, *m_stairTfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_resetService;
   ros::Timer diff_timer;
   ros::Timer pub_timer;

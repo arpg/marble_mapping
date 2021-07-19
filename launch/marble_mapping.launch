@@ -14,6 +14,7 @@
   <arg name="input" default="1" />
   <!-- Data source to integrate (PointCloud2) -->
   <arg name="cloud_in" default="points" />
+  <arg name="stair_cloud_in" default="stair_points"/>
   <!-- Minimum / Maximum range to integrate (speedup!) -->
   <arg name="min_range" default="0.0" />
   <arg name="max_range" default="7.0" />
@@ -140,6 +141,7 @@
     <param name="sensor_model/max" value="$(arg sensor_model/max)" />
 
     <remap from="cloud_in" to="$(arg cloud_in)"/>
+    <remap from="stair_cloud_in" to="$(arg stair_cloud_in)"/>
 
     <!-- The robot's base frame in which the ground plane detection is performed -->
     <!-- <remap from="base_frame_id" to="/X1/base_link" /> -->
