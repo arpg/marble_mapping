@@ -146,7 +146,7 @@ protected:
 
   ros::NodeHandle m_nh;
   ros::NodeHandle m_nh_private;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_mergedBinaryMapPub, m_mergedFullMapPub, m_diffMapPub, m_diffsMapPub, m_cameraMapPub, m_cameraViewPub, m_pointCloudPub, m_pointCloudDiffPub, m_fmarkerPub, m_travMarkerPub;
+  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_mergedBinaryMapPub, m_mergedFullMapPub, m_diffMapPub, m_diffsMapPub, m_cameraMapPub, m_cameraViewPub, m_pointCloudPub, m_pointCloudDiffPub, m_fmarkerPub, m_travMarkerPub, m_stairMarkerPub;
   ros::Subscriber m_neighborsSub;
   ros::Subscriber m_octomapSub;
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub, *m_stairPointCloudSub;
@@ -196,6 +196,7 @@ protected:
   bool m_publishCameraView;
   bool m_publishNeighborMaps;
   bool m_publishTravMarkerArray;
+  bool m_publishStairMarkerArray;
   bool m_adjustAgent;
   int m_displayColor;
 
@@ -210,6 +211,8 @@ protected:
   bool m_enableTraversability;
   bool m_enableTraversabilitySharing;
   int m_travMarkerDensity;
+
+  int m_stairMarkerDensity;
 
   // Diff parameters
   int diff_threshold;

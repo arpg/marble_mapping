@@ -43,8 +43,8 @@ namespace marble_mapping{
 MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeHandle &nh_)
 : m_nh(nh_),
   m_nh_private(private_nh_),
-  m_pointCloudSub(NULL),
-  m_tfPointCloudSub(NULL),
+  m_pointCloudSub(NULL), m_stairPointCloudSub(NULL),
+  m_tfPointCloudSub(NULL), m_stairTfPointCloudSub(NULL),
   m_reconfigureServer(m_config_mutex, private_nh_),
   m_maxRange(-1.0),
   m_worldFrameId("/map"), m_baseFrameId("base_footprint"),
@@ -123,7 +123,11 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("enable_traversability_sharing", m_enableTraversabilitySharing, false);
   m_nh_private.param("trav_marker_density", m_travMarkerDensity, 0);
 
+  m_nh_private.param("stair_marker_density", m_stairMarkerDensity, 0);
+
   m_publishTravMarkerArray = (m_travMarkerDensity>0 && m_enableTraversability);
+
+  m_publishStairMarkerArray = m_stairMarkerDensity>0;
 
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
@@ -271,7 +275,9 @@ MarbleMapping::MarbleMapping(const ros::NodeHandle private_nh_, const ros::NodeH
   if (m_publishPointCloudDiff)
     m_pointCloudDiffPub = m_nh.advertise<sensor_msgs::PointCloud2>("pc_diff", 1, m_latchedTopics);
   if (m_publishTravMarkerArray)
-    m_travMarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("trav_markers", 1, m_latchedTopics);
+    m_travMarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("trav_text_markers", 1, m_latchedTopics);
+  if (m_publishStairMarkerArray)
+    m_stairMarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("stair_text_markers", 1, m_latchedTopics);
 
   if (m_publishCameraView) {
     m_cameraViewPub = m_nh.advertise<visualization_msgs::Marker>("camera_view", 1, m_latchedTopics);
@@ -757,6 +763,7 @@ void MarbleMapping::insertScan(const tf::StampedTransform& sensorToWorldTf, cons
 }
 
 void MarbleMapping::insertStairCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
+  // ROS_INFO("GOT STAIR CLOUD!");
   //
   // ground filtering in base frame
   //
@@ -794,7 +801,7 @@ void MarbleMapping::insertStairCloudCallback(const sensor_msgs::PointCloud2::Con
   pass_z.setFilterLimits(m_pointcloudMinZ, m_pointcloudMaxZ);
 
   PCLPointCloud pc_nonground; // everything else
-  
+
   {
     // directly transform to map frame:
     pcl::transformPointCloud(pc, pc, sensorToWorld);
@@ -834,6 +841,8 @@ void MarbleMapping::insertStairCloudCallback(const sensor_msgs::PointCloud2::Con
 }
 
 void MarbleMapping::insertStairScan(const tf::StampedTransform& sensorToWorldTf, const PCLPointCloud& nonground){
+  // ROS_INFO("Insert stair scan");
+
   // Get the rotation matrix and the position, and build camera view if enabled
   tf::Matrix3x3 rotation = sensorToWorldTf.getBasis();
   point3d sensorOrigin = pointTfToOctomap(sensorToWorldTf.getOrigin());
@@ -856,42 +865,42 @@ void MarbleMapping::insertStairScan(const tf::StampedTransform& sensorToWorldTf,
         ((m_maxRange <= 0.0) || ((point - sensorOrigin).norm() <= m_maxRange))) {
 
       // free cells
-      // if (m_merged_tree->computeRayKeys(sensorOrigin, point, *keyRay)) {
-      //   #pragma omp critical(free_insert)
-      //   {
-      //     free_cells.insert(keyRay->begin(), keyRay->end());
-      //   }
-      // }
+      if (m_merged_tree->computeRayKeys(sensorOrigin, point, *keyRay)) {
+        #pragma omp critical(free_insert)
+        {
+          free_cells.insert(keyRay->begin(), keyRay->end());
+        }
+      }
       // occupied endpoint
       OcTreeKey key;
       if (m_merged_tree->coordToKeyChecked(point, key)) {
         #pragma omp critical(occupied_insert)
         {
-          // occupied_cells.insert(key);
+          occupied_cells.insert(key);
           // if (m_merged_tree->getRoughEnabled()) {
-            m_merged_tree->updateNodeStairs(key, true);
+            // m_merged_tree->updateNodeStairs(key, true);
           // }
         }
       }
     } else {// ray longer than maxrange:;
-      // point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
-      // if (m_merged_tree->computeRayKeys(sensorOrigin, new_end, *keyRay)) {
-      //   #pragma omp critical(free_insert)
-      //   {
-      //     free_cells.insert(keyRay->begin(), keyRay->end());
-      //   }
+      point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
+      if (m_merged_tree->computeRayKeys(sensorOrigin, new_end, *keyRay)) {
+        #pragma omp critical(free_insert)
+        {
+          free_cells.insert(keyRay->begin(), keyRay->end());
+        }
 
-      //   octomap::OcTreeKey endKey;
-      //   if (m_merged_tree->coordToKeyChecked(new_end, endKey)) {
-      //     #pragma omp critical(free_insert)
-      //     {
-      //       // This clears out previously occupied cells that were at the edge of the range
-      //       free_cells.insert(endKey);
-      //     }
-      //   } else {
-      //     ROS_ERROR_STREAM("Could not generate Key for endpoint "<<new_end);
-      //   }
-      // }
+        octomap::OcTreeKey endKey;
+        if (m_merged_tree->coordToKeyChecked(new_end, endKey)) {
+          #pragma omp critical(free_insert)
+          {
+            // This clears out previously occupied cells that were at the edge of the range
+            free_cells.insert(endKey);
+          }
+        } else {
+          ROS_ERROR_STREAM("Could not generate Key for endpoint "<<new_end);
+        }
+      }
     }
   }
 
@@ -899,24 +908,24 @@ void MarbleMapping::insertStairScan(const tf::StampedTransform& sensorToWorldTf,
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("The %zu stair points took %f seconds)", nonground.size(), total_elapsed);
 
-  // boost::mutex::scoped_lock lock(m_mtx);
-  // // mark free cells only if not seen occupied in this cloud
-  // for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
-  //   if (occupied_cells.find(*it) == occupied_cells.end()){
-  //     // Voxels are based on the main octree, so need the actual coordinate for other res trees
-  //     point3d point = m_merged_tree->keyToCoord(*it);
-  //     RoughOcTreeNode *newNode = m_merged_tree->updateNode(*it, false);
-  //     newNode->setAgent(1);
-  //   }
-  // }
+  boost::mutex::scoped_lock lock(m_mtx);
+  // mark free cells only if not seen occupied in this cloud
+  for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
+    if (occupied_cells.find(*it) == occupied_cells.end()){
+      // Voxels are based on the main octree, so need the actual coordinate for other res trees
+      point3d point = m_merged_tree->keyToCoord(*it);
+      RoughOcTreeNode *newNode = m_merged_tree->updateNodeStairs(*it, false);
+      // newNode->setAgent(1);
+    }
+  }
 
   // now mark all occupied cells:
-  // for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
-  //   point3d point = m_merged_tree->keyToCoord(*it);
-  //   // TODO need to check if this is the agent's node, and replace value if not instead of integrate, maybe custom updateNode function
-  //   RoughOcTreeNode *newNode = m_merged_tree->updateNode(*it, true);
-  //   newNode->setAgent(1);
-  // }
+  for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
+    point3d point = m_merged_tree->keyToCoord(*it);
+    // TODO need to check if this is the agent's node, and replace value if not instead of integrate, maybe custom updateNode function
+    RoughOcTreeNode *newNode = m_merged_tree->updateNodeStairs(*it, true);
+    // newNode->setAgent(1);
+  }
 }
 
 template <class OcTreeMT>
@@ -1165,16 +1174,17 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
   bool publishMarkerArray = m_publishMarkerArray && (m_markerPub.getNumSubscribers() > 0);
   bool publishPointCloud = m_publishPointCloud && (m_pointCloudPub.getNumSubscribers() > 0);
   bool publishTravMarkerArray = m_publishTravMarkerArray && (m_travMarkerPub.getNumSubscribers() > 0);
+  bool publishStairMarkerArray = m_publishStairMarkerArray && (m_stairMarkerPub.getNumSubscribers() > 0);
 
   // init markers:
-  visualization_msgs::MarkerArray freeNodesVis, occupiedNodesVis, travMarkers;
+  visualization_msgs::MarkerArray freeNodesVis, occupiedNodesVis, travMarkers, stairMarkers;
 
   // init pointcloud:
   pcl::PointCloud<PCLPoint> pclCloud;
 
   boost::mutex::scoped_lock lock(m_mtx);
   // Only traverse the tree if we're publishing a marker array or point cloud
-  if (publishMarkerArray || publishFreeMarkerArray || publishPointCloud || publishTravMarkerArray) {
+  if (publishMarkerArray || publishFreeMarkerArray || publishPointCloud || publishTravMarkerArray || publishStairMarkerArray) {
     // each array stores all cubes of a different size, one for each depth level:
     freeNodesVis.markers.resize(m_treeDepth+1);
     occupiedNodesVis.markers.resize(m_treeDepth+1);
@@ -1261,6 +1271,24 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
             // if (fabs(marker.pose.position.x)<1000.0 && fabs(marker.pose.position.y)<1000.0 && fabs(marker.pose.position.z)<1000.0)
             // if (!isnan(marker.pose.position.x) && !isnan(marker.pose.position.y) && !isnan(marker.pose.position.z))
             travMarkers.markers.push_back(marker);
+          }
+
+          if (publishStairMarkerArray && ( (int)round(x/size)%m_stairMarkerDensity==0 && (int)round(y/size)%m_stairMarkerDensity==0 ) ) {
+            char text_buf[50];
+            sprintf(text_buf, "%0.2f", it->getStairProbability());
+            std::string text_str = text_buf;
+            visualization_msgs::Marker marker;
+            marker.pose.position.x = x;
+            marker.pose.position.y = y;
+            marker.pose.position.z = z+size;
+            marker.pose.orientation.x = 0.0;
+            marker.pose.orientation.y = 0.0;
+            marker.pose.orientation.z = 0.0;
+            marker.pose.orientation.w = 1.0;
+            marker.text = text_buf;
+            // if (fabs(marker.pose.position.x)<1000.0 && fabs(marker.pose.position.y)<1000.0 && fabs(marker.pose.position.z)<1000.0)
+            // if (!isnan(marker.pose.position.x) && !isnan(marker.pose.position.y) && !isnan(marker.pose.position.z))
+            stairMarkers.markers.push_back(marker);
           }
         }
       } else { // node not occupied => mark as free in 2D map if unknown so far
@@ -1370,6 +1398,32 @@ void MarbleMapping::publishOptionalMaps(const ros::TimerEvent& event) {
     }
 
     m_travMarkerPub.publish(travMarkers);
+  }
+
+  if (publishStairMarkerArray){
+    for (unsigned i= 0; i < stairMarkers.markers.size(); ++i){
+      double size = m_merged_tree->getNodeSize(i);
+
+      stairMarkers.markers[i].header.frame_id = m_worldFrameId;
+      stairMarkers.markers[i].header.stamp = rostime;
+      stairMarkers.markers[i].ns = "map";
+      stairMarkers.markers[i].id = i;
+      stairMarkers.markers[i].type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      stairMarkers.markers[i].scale.z = 0.1;
+      stairMarkers.markers[i].color.r = 1.0;
+      stairMarkers.markers[i].color.g = 1.0;
+      stairMarkers.markers[i].color.b = 1.0;
+      stairMarkers.markers[i].color.a = 1.0;
+
+      if (stairMarkers.markers[i].text != "")
+        stairMarkers.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        stairMarkers.markers[i].action = visualization_msgs::Marker::DELETE;
+
+      // ROS_INFO("Setting text at %f %f %f %s", travMarkers.markers[i].pose.position.x, travMarkers.markers[i].pose.position.y, travMarkers.markers[i].pose.position.z, travMarkers.markers[i].text.c_str());
+    }
+
+    m_stairMarkerPub.publish(stairMarkers);
   }
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();

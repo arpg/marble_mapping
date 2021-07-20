@@ -22,7 +22,9 @@
   <arg name="enable_traversability" default="false" />
   <!-- Enable sharing of traversability info between agents for global terrain-aware planning  -->
   <arg name="enable_traversability_sharing" default="false" />
-  <arg name="trav_marker_density"             default="0"/>
+  <arg name="trav_marker_density"             default="1"/>
+
+  <arg name="stair_marker_density"             default="1"/>
 
   <!-- Performance Tuning Options-->
   <!-- Whether to prune maps as they're created.  Expensive on big maps! -->
@@ -65,7 +67,7 @@
   <!-- Whether to publish neighbor maps to neighbors/VEHICLE/map -->
   <arg name="publish_neighbor_maps" default="false" />
   <!-- Which color mode to use for map publishing.  Options are 1 (agent), 2 (rough), 3 (z-axis) -->
-  <arg name="display_color" default="1" />
+  <arg name="display_color" default="2" />
   <!-- Whether to remove ceiling from marker arrays and point clouds, and how deep to check -->
   <arg name="remove_ceiling" default="false" />
   <arg name="remove_ceiling_depth" default="4" />
@@ -86,7 +88,7 @@
   <arg name="sensor_model/min" default=".12" />
   <arg name="sensor_model/max" default=".97" />
 
-  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" output="screen">
+  <node pkg="marble_mapping" type="marble_mapping_node" name="marble_mapping" respawn="true" output="screen" launch-prefix="gdb -ex run --args">
     <param name="resolution" value="$(arg resolution)" />
     <param name="merged_resolution" value="$(arg merged_resolution)" />
     <param name="frame_id" type="string" value="$(arg frame_id)" />
@@ -132,6 +134,8 @@
     <param name="enable_traversability"           value="$(arg enable_traversability)" />
     <param name="enable_traversability_sharing"   value="$(arg enable_traversability_sharing)" />
     <param name="trav_marker_density"             value="$(arg trav_marker_density)"/>
+
+    <param name="stair_marker_density"             value="$(arg stair_marker_density)"/>
 
     <param name="filter_ground" value="$(arg filter_ground)" />
 
